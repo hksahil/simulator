@@ -1,0 +1,19 @@
+# Hiding streamlit branding
+st.set_page_config(page_title='Kellogg Simulator',page_icon=':smile:')
+
+# CSS
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
+
+# Creating columns
+col1,col2=st.columns(2)
+with col1:
+    st.write('(*Use the arrow to navigate the dashboard*)', unsafe_allow_html=True)
+with col2:
+    next = st.button("➡️",help='Next Page')
