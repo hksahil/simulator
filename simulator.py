@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Page Settings
-st.set_page_config(page_title='Kellogg Dynamic POC Simulator',page_icon=':smile:')
+st.set_page_config(page_title='Kellogg Dynamic Modelling Simulator',page_icon=':smile:')
 
 # CSS
 hide_st_style = """
@@ -51,7 +51,7 @@ def plot_totals(total_nsv_df1, total_nsv_combined, selected_projects, df1, df2):
     st.pyplot(fig)
 
 def main():
-    st.title('Kellogg Dynamic POC Simulator')
+    st.title('Kellogg POC Simulator')
 
     # Create df1
     df1_data = {'Project Name': ['A', 'B', 'C'],
