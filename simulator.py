@@ -47,7 +47,7 @@ def plot_totals(total_nsv_df1, total_nsv_combined, selected_projects, df1, df2):
                 ax.bar('Old NSV', total_nsv_selected_project_df1, color='#003f5c', label=f'Total NSV for project {project} in df1')
                 ax.bar('New NSV', total_nsv_selected_project_combined, color='#ff6361', label=f'Total NSV for project {project} in combined df1 and df2')
 
-    ax.set_ylabel('Total NSV')
+    ax.set_ylabel('Total NSV ($)')
     st.pyplot(fig)
 
 def main():
