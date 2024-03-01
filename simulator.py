@@ -25,6 +25,7 @@ df1_data = {
     'NSV': [10, 20],
     'Proj id': [1, 2]
 }
+
 df1 = pd.DataFrame(df1_data)
 df1_copy=copy.deepcopy(df1)
 
@@ -42,11 +43,8 @@ def add_projects(df1, df2):
 
     # Concatenate both dataframes
     result = pd.concat([df1, df2], ignore_index=True)
-    
-    return result
 
-# Function to plot bar graph
-import seaborn as sns
+    return result
 
 def plot_bar_graph(df):
     plt.figure(figsize=(8, 6))
@@ -63,7 +61,6 @@ def main():
     st.sidebar.subheader('Upload simulation Excel file')
     st.sidebar.markdown('Check the input file template [here](https://docs.google.com/spreadsheets/d/1YtrESf2WrrzAlxgdzpo1eyDgjm2X6IUmTZdWz1u406E/edit?usp=sharing).')
 
-
     #upload df2
     uploaded_file_df2 = st.sidebar.file_uploader(" ", type=["xlsx", "xls"])
 
@@ -75,13 +72,11 @@ def main():
         result = add_projects(df1, df2)
 
         # Add filters
-        col1,col2,col3=st.columns(3)
-        with col1:
-            projects=st.multiselect('Project Name',result['Project'].unique(),default=result['Project'].unique())
-        with col2:
-            regions=st.multiselect('Region',result['Region'].unique(),default=result['Region'].unique())
-        with col3:
-            p_ids=st.multiselect('Project ID',result['Proj id'].unique(),default=result['Proj id'].unique())
+        st.sidebar.subheader('Filter Section')
+        projects=st.sidebar.multiselect('Project Name',result['Project'].unique(),default=result['Project'].unique())
+        regions=st.sidebar.multiselect('Region',result['Region'].unique(),default=result['Region'].unique())
+        p_ids=st.sidebar.multiselect('Project ID',result['Proj id'].unique(),default=result['Proj id'].unique())
+
         # Add a horizontal line
         st.markdown("---")   
 
@@ -96,13 +91,9 @@ def main():
             st.write("Uploaded Data")
             st.write(df2_copy) 
 
-        col1,col2=st.columns(2)
-        with col1:
-            # Plot bar graph
-            plot_bar_graph(filtered_final_df)
-        with col2:
-            # Plot bar graph
-            plot_bar_graph(filtered_final_df)
+        # Plot bar graph
+        plot_bar_graph(filtered_final_df)
+
     else:
         st.warning('Please upload the simulation Excel file to do simulation')
 
