@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+
 # Page Settings
 st.set_page_config(page_title='Kellogg Dynamic POC Simulator',page_icon=':smile:')
 
@@ -29,12 +30,11 @@ def calculate_totals(df1, df2):
 def plot_totals(total_nsv_df1, total_nsv_combined, selected_projects, df1, df2):
     # Plotting
     fig, ax = plt.subplots()
-    labels = ['Old NSV', 'New NSV']
 
     if not selected_projects:
         # Plot bars for combined unfiltered values
-        ax.bar(labels[0], total_nsv_df1, color='#003f5c', label=labels[0])
-        ax.bar(labels[1], total_nsv_combined, color='#ff6361', label=labels[1])
+        ax.bar('Old NSV', total_nsv_df1, color='#003f5c', label='Old NSV')
+        ax.bar('New NSV', total_nsv_combined, color='#ff6361', label='New NSV')
     else:
         for project in selected_projects:
             if project:
@@ -44,8 +44,8 @@ def plot_totals(total_nsv_df1, total_nsv_combined, selected_projects, df1, df2):
                 total_nsv_selected_project_combined = total_nsv_selected_project_df1 + total_nsv_selected_project_df2
 
                 # Plot bars for selected project
-                ax.bar(labels[0], total_nsv_selected_project_df1, color='blue', label=f'Total NSV for project {project} in df1')
-                ax.bar(labels[1], total_nsv_selected_project_combined, color='green', label=f'Total NSV for project {project} in combined df1 and df2')
+                ax.bar('Old NSV', total_nsv_selected_project_df1, color='#003f5c', label=f'Total NSV for project {project} in df1')
+                ax.bar('New NSV', total_nsv_selected_project_combined, color='#ff6361', label=f'Total NSV for project {project} in combined df1 and df2')
 
     ax.set_ylabel('Total NSV')
     st.pyplot(fig)
