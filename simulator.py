@@ -2,9 +2,11 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import numpy as np
 import copy
 import duckdb
 from streamlit_dynamic_filters import DynamicFilters
+from matplotlib import style
 
 # Page Settings
 st.set_page_config(page_title='Kellogg Dynamic Modelling Simulator',page_icon=':smile:',layout='wide')
@@ -84,12 +86,50 @@ def add_projects(df1, df2):
     return result
 
 def plot_bar_graph(df):
-    plt.figure(figsize=(8, 6))
-    sns.barplot(x=['Old NSV', 'New NSV'], y=[df['df1_nsv_yr_1'].sum(), df['df2_nsv_yr_1'].sum()], palette=['#003f5c', '#ff6361'])
-    plt.xlabel('NSV Type')
-    plt.ylabel('NSV ($M)')
-    plt.title('NSV of Projects')
+
+    yr_nsv_sales = df.groupby('yr_of_nsv')[['df1_3_yr_nsv_for_yr_of_nsv', 'df2_3_yr_nsv_for_yr_of_nsv']].sum().reset_index()
+    #st.write('graph table',yr_nsv_sales)
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 6))
+    # Width of the bars
+    bar_width = 0.2
+    # Index for the x-axis
+    ind = range(len(yr_nsv_sales))
+    # Plotting old sales
+    old_sales = ax.bar(ind, yr_nsv_sales['df1_3_yr_nsv_for_yr_of_nsv'], bar_width, label='Old Sales')
+    new_sales = ax.bar([i + bar_width for i in ind], yr_nsv_sales['df2_3_yr_nsv_for_yr_of_nsv'], bar_width, label='New Sales')
+    # Setting labels and title
+    ax.set_xlabel('Year of NSV')
+    ax.set_ylabel('NSV 3 year rolling')
+    ax.set_title('Old vs New NSV by Year of NSV')
+    ax.set_xticks([i + bar_width / 2 for i in ind])
+    ax.set_xticklabels(yr_nsv_sales['yr_of_nsv'])
+    ax.legend()
+    # Show plot
     st.pyplot()
+
+def plot_bar_region(df):
+    Region_grp = df.groupby('Region')[['df1_3_yr_nsv_for_yr_of_nsv', 'df2_3_yr_nsv_for_yr_of_nsv']].sum().reset_index()
+    #st.write('graph table',Region_grp)
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 6))
+    # Width of the bars
+    bar_width = 0.2
+    # Index for the x-axis
+    ind = range(len(Region_grp))
+    # Plotting old sales
+    old_sales = ax.bar(ind, Region_grp['df1_3_yr_nsv_for_yr_of_nsv'], bar_width, label='Old Sales')
+    new_sales = ax.bar([i + bar_width for i in ind], Region_grp['df2_3_yr_nsv_for_yr_of_nsv'], bar_width, label='New Sales')
+    # Setting labels and title
+    ax.set_xlabel('Region')
+    ax.set_ylabel('NSV 3 year rolling')
+    ax.set_title('Old vs New NSV by Region')
+    ax.set_xticks([i + bar_width / 2 for i in ind])
+    ax.set_xticklabels(Region_grp['Region'])
+    ax.legend()
+    # Show plot
+    st.pyplot()    
+
 
 def main():
     st.title('Kellogg POC Simulator')
@@ -108,8 +148,8 @@ def main():
         df2['launch_dt'] = df2['launch_dt'].dt.strftime('%Y-%m-%d')
         df2_copy=copy.deepcopy(df2)
 
-        st.write(df1)
-        st.write(df2)
+        #st.write(df1)
+        #st.write(df2)
 
         z = duckdb.query("""
         select *  from ( 
@@ -154,18 +194,36 @@ def main():
 				df2 ) unpivot (mm_nsv for mm_type in (mm_nsv_yr_1, mm_nsv_yr_2, mm_nsv_yr_3, mm_nsv_yr_dummy))) )
 	select * from nsv_calc )
     """
-    ).df()
+        ).df()
+
         #Renaming and dropping few of the columns 
         z.drop(['launch_month','mm_nsv','curr_yr'],axis=1,inplace=True)
         z.rename(columns={'year_of_nsv':'yr_of_nsv', 'launch_year':'launch_yr','filtr':'filter','yearly_total':'df2_nsv_year','next_mm_nsv':'df2_nsv_wrap'}, inplace=True)
-
-        st.write(z)
-
+        #st.write(z)
+        
+        # Creating a column just for Year of NSV to show its NSV Value
         result = add_projects(df1, z)
-        st.write(result)
+        result['df2_3_yr_nsv_for_yr_of_nsv']= result['df2_nsv_year']+result['df2_nsv_wrap']
+        result['df1_3_yr_nsv_for_yr_of_nsv']= result['df1_nsv_year']+result['df1_nsv_wrap']
+
+        dynamic_filters = DynamicFilters(result, filters=['Project', 'Region', 'Proj_id'])
+        dynamic_filters.display_filters(location='sidebar')
+        df_filtered = dynamic_filters.filter_df()
+        st.write('The Processed Data',df_filtered)
+        st.markdown("----")
+
+        # #variable for NSV Rollings
+        # df2_nsv_1yr_rolling = result.loc[result['filter'] == 1, 'df2_nsv_year'].sum() + result.loc[result['filter'] == 2, 'df2_nsv_wrap'].sum()
+        # df2_nsv_3yr_rolling = result['df2_nsv_year'].sum() +  result['df2_nsv_wrap'].sum()
+        # df1_nsv_1yr_rolling = result.loc[result['filter'] == 1, 'df1_nsv_year'].sum() + result.loc[result['filter'] == 2, 'df1_nsv_wrap'].sum()
+        # df1_nsv_3yr_rolling = result['df1_nsv_year'].sum() +  result['df1_nsv_wrap'].sum()     
 
         # Plot bar graph
-        plot_bar_graph(result)
+        col1,col2=st.columns(2) 
+        with col1:
+            plot_bar_graph(df_filtered) 
+        with col2:
+            plot_bar_region(df_filtered)
 
     else:
         st.warning('Please upload the simulation Excel file to do simulation')
