@@ -85,6 +85,76 @@ def add_projects(df1, df2):
 
     return result
 
+# Function to delete projects
+def delete_projects(df1, df2):
+
+    # Rename 'nsv' column in df2
+    df2 = df2.rename(columns={'Proj_id': 'df2_Proj_id','nsv_yr_1':'df2_nsv_yr_1','nsv_yr_2':'df2_nsv_yr_2','nsv_yr_3':'df2_nsv_yr_3','nsv_yr_1_rollup':'df2_nsv_yr_1_rollup','nsv_yr_3_rollup':'df2_nsv_yr_3_rollup'})
+    
+    # Create a replica of df1
+    result = df1.copy()
+    
+    # Check if 'Project' exists in df2, if so, set 'df2.nsv' to blank
+    result['df2_Proj_id'] = result.apply(lambda row: row['Proj_id'] if row['Project'] in df2['Project'].values else None, axis=1)
+    result['df2_nsv_yr_1'] = result.apply(lambda row: row['nsv_yr_1'] if row['Project'] in df2['Project'].values else None, axis=1)
+    result['df2_nsv_yr_2'] = result.apply(lambda row: row['nsv_yr_2'] if row['Project'] in df2['Project'].values else None, axis=1)
+    result['df2_nsv_yr_3'] = result.apply(lambda row: row['nsv_yr_3'] if row['Project'] in df2['Project'].values else None, axis=1)
+    result['df2_nsv_yr_1_rollup'] = result.apply(lambda row: row['nsv_yr_1_rollup'] if row['Project'] in df2['Project'].values else None, axis=1)
+    result['df2_nsv_yr_3_rollup'] = result.apply(lambda row: row['nsv_yr_3_rollup'] if row['Project'] in df2['Project'].values else None, axis=1)
+    result = result.rename(columns={'Proj_id': 'df1.Proj_id'})
+    result = result.rename(columns={'nsv_yr_1': 'df1_nsv_yr_1'})
+    result = result.rename(columns={'nsv_yr_2': 'df1_nsv_yr_2'})
+    result = result.rename(columns={'nsv_yr_3': 'df1_nsv_yr_3'})
+    result = result.rename(columns={'nsv_yr_1_rollup': 'df1_nsv_yr_1_rollup'})
+    result = result.rename(columns={'nsv_yr_3_rollup': 'df1_nsv_yr_3_rollup'})
+
+    return result
+
+def plot_bar_graph_delete(df):
+
+    yr_nsv_sales = df.groupby('yr_of_nsv')[['df1_nsv_yr_3_rollup', 'df2_nsv_yr_3_rollup']].sum().reset_index()
+    #st.write('graph table',yr_nsv_sales)
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 6))
+    # Width of the bars
+    bar_width = 0.2
+    # Index for the x-axis
+    ind = range(len(yr_nsv_sales))
+    # Plotting old sales
+    old_sales = ax.bar(ind, yr_nsv_sales['df1_nsv_yr_3_rollup'], bar_width, label='Old Sales')
+    new_sales = ax.bar([i + bar_width for i in ind], yr_nsv_sales['df2_nsv_yr_3_rollup'], bar_width, label='New Sales')
+    # Setting labels and title
+    ax.set_xlabel('Year of NSV')
+    ax.set_ylabel('NSV 3 year rolling')
+    ax.set_title('Old vs New NSV by Year of NSV')
+    ax.set_xticks([i + bar_width / 2 for i in ind])
+    ax.set_xticklabels(yr_nsv_sales['yr_of_nsv'])
+    ax.legend()
+    # Show plot
+    st.pyplot()
+
+def plot_bar_region_delete(df):
+    Region_grp = df.groupby('Region')[['df1_nsv_yr_3_rollup', 'df2_nsv_yr_3_rollup']].sum().reset_index()
+    #st.write('graph table',Region_grp)
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 6))
+    # Width of the bars
+    bar_width = 0.2
+    # Index for the x-axis
+    ind = range(len(Region_grp))
+    # Plotting old sales
+    old_sales = ax.bar(ind, Region_grp['df1_nsv_yr_3_rollup'], bar_width, label='Old Sales')
+    new_sales = ax.bar([i + bar_width for i in ind], Region_grp['df2_nsv_yr_3_rollup'], bar_width, label='New Sales')
+    # Setting labels and title
+    ax.set_xlabel('Region')
+    ax.set_ylabel('NSV 3 year rolling')
+    ax.set_title('Old vs New NSV by Region')
+    ax.set_xticks([i + bar_width / 2 for i in ind])
+    ax.set_xticklabels(Region_grp['Region'])
+    ax.legend()
+    # Show plot
+    st.pyplot()  
+
 def plot_bar_graph(df):
 
     yr_nsv_sales = df.groupby('yr_of_nsv')[['df1_3_yr_nsv_for_yr_of_nsv', 'df2_3_yr_nsv_for_yr_of_nsv']].sum().reset_index()
@@ -133,97 +203,135 @@ def plot_bar_region(df):
 
 def main():
     st.title('Kellogg POC Simulator')
+    st.sidebar.header("Kelloggs")
+    operation = st.radio("Select operation:", ("Add projects", "Delete projects"))
+    if operation=='Add projects':
+        st.sidebar.subheader('Upload simulation Excel file')
+        st.sidebar.markdown('Check the input file template [here](https://docs.google.com/spreadsheets/d/1YtrESf2WrrzAlxgdzpo1eyDgjm2X6IUmTZdWz1u406E/edit?usp=sharing).')
 
-    # Sidebar
-    st.sidebar.subheader('Upload simulation Excel file')
-    st.sidebar.markdown('Check the input file template [here](https://docs.google.com/spreadsheets/d/1YtrESf2WrrzAlxgdzpo1eyDgjm2X6IUmTZdWz1u406E/edit?usp=sharing).')
+        #upload user input file
+        uploaded_file_df2 = st.sidebar.file_uploader(" ", type=["xlsx", "xls"])
 
-    #upload user input file
-    uploaded_file_df2 = st.sidebar.file_uploader(" ", type=["xlsx", "xls"])
+        if uploaded_file_df2:
+            df2 = pd.read_excel(uploaded_file_df2)
+            # changing the data type and format of launch date
+            df2['launch_dt'] = pd.to_datetime(df2['launch_dt'])
+            df2['launch_dt'] = df2['launch_dt'].dt.strftime('%Y-%m-%d')
+            df2_copy=copy.deepcopy(df2)
 
-    if uploaded_file_df2:
-        df2 = pd.read_excel(uploaded_file_df2)
-        # changing the data type and format of launch date
-        df2['launch_dt'] = pd.to_datetime(df2['launch_dt'])
-        df2['launch_dt'] = df2['launch_dt'].dt.strftime('%Y-%m-%d')
-        df2_copy=copy.deepcopy(df2)
+            #st.write(df1)
+            #st.write(df2)
 
-        #st.write(df1)
-        #st.write(df2)
+            z = duckdb.query("""
+            select *  from ( 
+            with nsv_calc as (
+            select * ,
+            row_number() over(partition by Project order by year_of_nsv) filtr ,
+            lag(mm_nsv) over (partition by Project order by year_of_nsv ) next_mm_nsv
+            from (
+            select Project,Proj_id,launch_dt,Region,nsv_yr_1,nsv_yr_2,nsv_yr_3,
+                launch_yr + launch_month_nov_dec_flag launch_year ,
+                case
+                    when launch_month_nov_dec_flag = 1 then 1
+                    else launch_month
+                end launch_month ,
+                launch_yr + launch_month_nov_dec_flag +
+                case
+                    when mm_type = 'mm_nsv_yr_1' then 0
+                    when mm_type = 'mm_nsv_yr_2' then 1
+                    when mm_type = 'mm_nsv_yr_3' then 2
+                    when mm_type = 'mm_nsv_yr_dummy' then 3
+                    else 0
+                end year_of_nsv ,
+                mm_nsv *(13-launch_month) yearly_total ,
+                mm_nsv *(launch_month-1) mm_nsv ,
+                df2_nsv_yr_1_rollup ,
+                df2_nsv_yr_3_rollup ,
+                curr_yr
+            from (             
+                select Project,Proj_id,launch_dt,Region,nsv_yr_1,nsv_yr_2,nsv_yr_3,
+                    extract( year from cast(launch_dt as date)) as launch_yr,
+                    extract( month from cast(launch_dt as date)) as launch_month ,
+                    case when launch_month in (11, 12) then 1 else 0 end launch_month_nov_dec_flag ,
+                    cast(coalesce(nsv_yr_1, 0) as decimal)/ 12 as mm_nsv_yr_1 ,
+                    cast(coalesce(nsv_yr_1, 0) as decimal)/ 12 as mm_nsv_yr_1 ,
+                    cast(coalesce(nsv_yr_2, 0) as decimal)/ 12 as mm_nsv_yr_2 ,
+                    cast(coalesce(nsv_yr_3, 0) as decimal)/ 12 as mm_nsv_yr_3 ,
+                    0 as mm_nsv_yr_dummy ,
+                    cast(coalesce(nsv_yr_1, 0) as decimal) df2_nsv_yr_1_rollup ,
+                    cast(coalesce(nsv_yr_1, 0) as decimal) + cast(coalesce(nsv_yr_2, 0) as decimal) + cast(coalesce(nsv_yr_3, 0) as decimal) df2_nsv_yr_3_rollup,
+                    extract(year from current_date) curr_yr
+                from
+                    df2 ) unpivot (mm_nsv for mm_type in (mm_nsv_yr_1, mm_nsv_yr_2, mm_nsv_yr_3, mm_nsv_yr_dummy))) )
+            select * from nsv_calc )
+             """
+            ).df()
 
-        z = duckdb.query("""
-        select *  from ( 
-        with nsv_calc as (
-        select * ,
-		row_number() over(partition by Project order by year_of_nsv) filtr ,
-		lag(mm_nsv) over (partition by Project order by year_of_nsv ) next_mm_nsv
-        from (
-		select Project,Proj_id,launch_dt,Region,nsv_yr_1,nsv_yr_2,nsv_yr_3,
-			launch_yr + launch_month_nov_dec_flag launch_year ,
-			case
-				when launch_month_nov_dec_flag = 1 then 1
-				else launch_month
-			end launch_month ,
-			launch_yr + launch_month_nov_dec_flag +
-			case
-				when mm_type = 'mm_nsv_yr_1' then 0
-				when mm_type = 'mm_nsv_yr_2' then 1
-				when mm_type = 'mm_nsv_yr_3' then 2
-				when mm_type = 'mm_nsv_yr_dummy' then 3
-				else 0
-			end year_of_nsv ,
-			mm_nsv *(13-launch_month) yearly_total ,
-			mm_nsv *(launch_month-1) mm_nsv ,
-			df2_nsv_yr_1_rollup ,
-			df2_nsv_yr_3_rollup ,
-			curr_yr
-		from (             
-			select Project,Proj_id,launch_dt,Region,nsv_yr_1,nsv_yr_2,nsv_yr_3,
-                extract( year from cast(launch_dt as date)) as launch_yr,
-                extract( month from cast(launch_dt as date)) as launch_month ,
-				case when launch_month in (11, 12) then 1 else 0 end launch_month_nov_dec_flag ,
-                cast(coalesce(nsv_yr_1, 0) as decimal)/ 12 as mm_nsv_yr_1 ,
-                cast(coalesce(nsv_yr_1, 0) as decimal)/ 12 as mm_nsv_yr_1 ,
-				cast(coalesce(nsv_yr_2, 0) as decimal)/ 12 as mm_nsv_yr_2 ,
-				cast(coalesce(nsv_yr_3, 0) as decimal)/ 12 as mm_nsv_yr_3 ,
-				0 as mm_nsv_yr_dummy ,
-				cast(coalesce(nsv_yr_1, 0) as decimal) df2_nsv_yr_1_rollup ,
-				cast(coalesce(nsv_yr_1, 0) as decimal) + cast(coalesce(nsv_yr_2, 0) as decimal) + cast(coalesce(nsv_yr_3, 0) as decimal) df2_nsv_yr_3_rollup,
-			    extract(year from current_date) curr_yr
-			from
-				df2 ) unpivot (mm_nsv for mm_type in (mm_nsv_yr_1, mm_nsv_yr_2, mm_nsv_yr_3, mm_nsv_yr_dummy))) )
-	select * from nsv_calc )
-    """
-        ).df()
+            #Renaming and dropping few of the columns 
+            z.drop(['launch_month','mm_nsv','curr_yr'],axis=1,inplace=True)
+            z.rename(columns={'year_of_nsv':'yr_of_nsv', 'launch_year':'launch_yr','filtr':'filter','yearly_total':'df2_nsv_year','next_mm_nsv':'df2_nsv_wrap'}, inplace=True)
+            #st.write(z)
+            
+            # Creating a column just for Year of NSV to show its NSV Value
+            result = add_projects(df1, z)
+            result['df2_3_yr_nsv_for_yr_of_nsv']= result['df2_nsv_year']+result['df2_nsv_wrap']
+            result['df1_3_yr_nsv_for_yr_of_nsv']= result['df1_nsv_year']+result['df1_nsv_wrap']
 
-        #Renaming and dropping few of the columns 
-        z.drop(['launch_month','mm_nsv','curr_yr'],axis=1,inplace=True)
-        z.rename(columns={'year_of_nsv':'yr_of_nsv', 'launch_year':'launch_yr','filtr':'filter','yearly_total':'df2_nsv_year','next_mm_nsv':'df2_nsv_wrap'}, inplace=True)
-        #st.write(z)
+            dynamic_filters = DynamicFilters(result, filters=['Project', 'Region'])
+            dynamic_filters.display_filters(location='sidebar')
+            df_filtered = dynamic_filters.filter_df()
+            st.write('The Processed Data',df_filtered)
+            st.markdown("----")
+
+            # #variable for NSV Rollings
+            # df2_nsv_1yr_rolling = result.loc[result['filter'] == 1, 'df2_nsv_year'].sum() + result.loc[result['filter'] == 2, 'df2_nsv_wrap'].sum()
+            # df2_nsv_3yr_rolling = result['df2_nsv_year'].sum() +  result['df2_nsv_wrap'].sum()
+            # df1_nsv_1yr_rolling = result.loc[result['filter'] == 1, 'df1_nsv_year'].sum() + result.loc[result['filter'] == 2, 'df1_nsv_wrap'].sum()
+            # df1_nsv_3yr_rolling = result['df1_nsv_year'].sum() +  result['df1_nsv_wrap'].sum()     
+
+            # Plot bar graph
+            col1,col2=st.columns(2) 
+            with col1:
+                plot_bar_graph(df_filtered) 
+            with col2:
+                plot_bar_region(df_filtered)
+        else:
+            st.warning('Please upload the simulation Excel file to do simulation')
+
+    elif operation=='Delete projects':
+        df1_Copy2 = df1_copy[df1_copy['filter']==1]
+        #df1_Copy2 = df1_Copy3[['Project','Proj_id','Region','nsv_yr_1','nsv_yr_2','nsv_yr_3']]
+        #st.write('ad',df1_Copy2)
+        df1_Copy2['flag']=False
+        df1_Copy2.insert(0, 'flag', df1_Copy2.pop('flag'))
+        df1_Copy2.insert(1, 'Project', df1_Copy2.pop('Project'))
+        q=st.data_editor(df1_Copy2,    column_config={
+        "flag": st.column_config.CheckboxColumn(
+            "Delete",
+            help="Select the projects you want to delete",
+            default=False,
+        )
+    },)
+        df_deletion_new=q[q['flag']==False]
+
+        # Button to simulate
+        button_pressed = st.checkbox("Delete the Selection")
         
-        # Creating a column just for Year of NSV to show its NSV Value
-        result = add_projects(df1, z)
-        result['df2_3_yr_nsv_for_yr_of_nsv']= result['df2_nsv_year']+result['df2_nsv_wrap']
-        result['df1_3_yr_nsv_for_yr_of_nsv']= result['df1_nsv_year']+result['df1_nsv_wrap']
+        if button_pressed:
+            result = delete_projects(df1, df_deletion_new)
+            #st.write(result)
+            dynamic_filters = DynamicFilters(result, filters=['Project', 'Region'])
+            dynamic_filters.display_filters(location='sidebar')
+            df_filtered = dynamic_filters.filter_df()
+            st.write('The Processed Data',df_filtered)
+            st.markdown("----")
 
-        dynamic_filters = DynamicFilters(result, filters=['Project', 'Region', 'Proj_id'])
-        dynamic_filters.display_filters(location='sidebar')
-        df_filtered = dynamic_filters.filter_df()
-        st.write('The Processed Data',df_filtered)
-        st.markdown("----")
+            col1,col2=st.columns(2) 
+            with col1:
+                plot_bar_graph_delete(df_filtered) 
+            with col2:
+                plot_bar_region_delete(df_filtered)
 
-        # #variable for NSV Rollings
-        # df2_nsv_1yr_rolling = result.loc[result['filter'] == 1, 'df2_nsv_year'].sum() + result.loc[result['filter'] == 2, 'df2_nsv_wrap'].sum()
-        # df2_nsv_3yr_rolling = result['df2_nsv_year'].sum() +  result['df2_nsv_wrap'].sum()
-        # df1_nsv_1yr_rolling = result.loc[result['filter'] == 1, 'df1_nsv_year'].sum() + result.loc[result['filter'] == 2, 'df1_nsv_wrap'].sum()
-        # df1_nsv_3yr_rolling = result['df1_nsv_year'].sum() +  result['df1_nsv_wrap'].sum()     
-
-        # Plot bar graph
-        col1,col2=st.columns(2) 
-        with col1:
-            plot_bar_graph(df_filtered) 
-        with col2:
-            plot_bar_region(df_filtered)
 
     else:
         st.warning('Please upload the simulation Excel file to do simulation')
