@@ -156,7 +156,7 @@ def plot_bar_region_delete(df):
     st.pyplot()  
 
 def plot_bar_graph(df):
-
+    df['df1_3_yr_nsv_for_yr_of_nsv']=df['df1_3_yr_nsv_for_yr_of_nsv'].astype('float64')
     yr_nsv_sales = df.groupby('yr_of_nsv')[['df1_3_yr_nsv_for_yr_of_nsv', 'df2_3_yr_nsv_for_yr_of_nsv']].sum().reset_index()
     #st.write('graph table',yr_nsv_sales)
     # Plotting
@@ -165,6 +165,7 @@ def plot_bar_graph(df):
     bar_width = 0.2
     # Index for the x-axis
     ind = range(len(yr_nsv_sales))
+
     # Plotting old sales
     old_sales = ax.bar(ind, yr_nsv_sales['df1_3_yr_nsv_for_yr_of_nsv'], bar_width, label='Old Sales')
     new_sales = ax.bar([i + bar_width for i in ind], yr_nsv_sales['df2_3_yr_nsv_for_yr_of_nsv'], bar_width, label='New Sales')
