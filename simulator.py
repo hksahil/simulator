@@ -18,7 +18,6 @@ hide_st_style = """
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             header {visibility: hidden;}
-            span.st-emotion-cache-10trblm e1nzilvr1 {color:red !important;}
             </style>
             """
 st.markdown(hide_st_style, unsafe_allow_html=True)
@@ -31,23 +30,36 @@ df1_data= {
     'launch_yr': [2026,2018,2019],
     'launch_dt': ['2025-11-10','2018-08-15','2018-12-01'],
     'Region': ['KNA','KAP','KAP'],
-    'nsv_yr_1': [5000000,0,1300000],
-    'nsv_yr_2': [0,0,0],
-    'nsv_yr_3': [0,0,0]
+    'nsv_yr_1': [10,15,10],
+    'nsv_yr_2': [15,20,20],
+    'nsv_yr_3': [10,10,15]
 }
 df_raw= pd.DataFrame(df1_data)
-original_data=copy.deepcopy(df_raw)
+Dwnld_copy=copy.deepcopy(df_raw)
+
+# the original data 
+df_orgnl = {
+    'launch_yr': [2026,2026,2026,2026,2018,2018,2018,2018,2019,2019,2019,2019],
+    'launch_dt': ['2025-11-10','2025-11-10','2025-11-10','2025-11-10','2018-08-15','2018-08-15','2018-08-15','2018-08-15','2018-12-01','2018-12-01','2018-12-01','2018-12-01'],
+    'Project': ['Civic 2.0','Civic 2.0','Civic 2.0','Civic 2.0', 'Clip ANZ', 'Clip ANZ', 'Clip ANZ', 'Clip ANZ','10 on 10','10 on 10','10 on 10','10 on 10'],
+    'Region': ['KNA','KNA','KNA','KNA', 'KAP','KAP','KAP','KAP','KAP','KAP','KAP','KAP'],
+    'nsv_yr_1': [10,10,10,10,10,10,10,10,15,15,15,15],
+    'nsv_yr_2': [15,15,15,15,20,20,20,20,20,20,20,20],
+    'nsv_yr_3': [10,10,10,10,15,15,15,15,10,10,10,10],
+    'Proj_id': [1,1,1,1,2,2,2,2,3,3,3,3],
+    'nsv_yr_1_rollup':[10,10,10,10,10,10,10,10,15,15,15,15],
+    'nsv_yr_3_rollup':[35,35,35,35,45,45,45,45,45,45,45,45],
+    'filter':[1,2,3,4,1,2,3,4,1,2,3,4],
+    'nsv_year':[1.6,2.5,1.6,0,0.8,1.6,1.25,0,6.25,8.3,4.16,0],
+    'nsv_wrap':[0,8.3,12.5,8.3,0,9.16,18.3,13.75,0,8.75,11.6,5.83],
+    'yr_of_nsv':[2026,2027,2028,2029,2018,2019,2020,2021,2019,2020,2021,2022]
+}
+df_org=pd.DataFrame(df_orgnl)
+original_copy=copy.deepcopy(df_org)
 
 
-def Process_data(df):
-# Create both columns using list comprehension
-    df['df1_nsv_yr_1'] = [row['df2_nsv_yr_1'] if row['Action'] in ['DELETE', 'CURRENT'] else None for index, row in df.iterrows()]
-    df['df1_nsv_yr_2'] = [row['df2_nsv_yr_2'] if row['Action'] in ['DELETE', 'CURRENT'] else None for index, row in df.iterrows()]
-    df['df1_nsv_yr_3'] = [row['df2_nsv_yr_3'] if row['Action'] in ['DELETE', 'CURRENT'] else None for index, row in df.iterrows()]
-    df['df1_nsv_yr_1_rollup'] = [row['df2_nsv_yr_1_rollup'] if row['Action'] in ['DELETE', 'CURRENT'] else None for index, row in df.iterrows()]
-    df['df1_nsv_yr_3_rollup'] = [row['df2_nsv_yr_3_rollup'] if row['Action'] in ['DELETE', 'CURRENT'] else None for index, row in df.iterrows()]
-    df['df1_nsv_year'] = [row['df2_nsv_year'] if row['Action'] in ['DELETE', 'CURRENT'] else None for index, row in df.iterrows()]
-    df['df1_nsv_wrap'] = [row['df2_nsv_wrap'] if row['Action'] in ['DELETE', 'CURRENT'] else None for index, row in df.iterrows()]
+
+def Process_data(df,dfx): 
     
     # Deleting the values
     df['df2_nsv_yr_1'] = [None if row['Action'] in ['DELETE'] else row['df2_nsv_yr_1'] for index, row in df.iterrows()]
@@ -58,11 +70,19 @@ def Process_data(df):
     df['df2_nsv_year'] = [None if row['Action'] in ['DELETE'] else row['df2_nsv_year'] for index, row in df.iterrows()]
     df['df2_nsv_wrap'] = [None if row['Action'] in ['DELETE'] else row['df2_nsv_wrap'] for index, row in df.iterrows()]
 
-    # Adding 3 year rolling NSV 
-    df['df2_nsv_3yr_rollling']= df['df2_nsv_year'].fillna(0)+ df['df2_nsv_wrap'].fillna(0)
-    df['df1_nsv_3yr_rollling']= df['df1_nsv_year'].fillna(0)+ df['df1_nsv_wrap'].fillna(0)
+    #join measures from original to input file 
+    df['Combined'] = df['filter'].astype(str) + "_" + df['Project']
+    dfx['Combined'] = dfx['filter'].astype(str) + "_" + dfx['Project']
 
-    return(df)
+    result_concat = df.join(dfx.set_index("Combined"),how = 'left' ,rsuffix="_df1", on="Combined", validate="1:1")
+    result_concat.drop(['Project_df1','launch_dt_df1','yr_of_nsv_df1','launch_yr_df1','Region_df1','Proj_id_df1','filter_df1'],axis=1, inplace=True )
+    result_concat.rename(columns={'nsv_year':'df1_nsv_year','nsv_wrap':'df1_nsv_wrap','nsv_yr_1': 'df1_nsv_yr_1','nsv_yr_2': 'df1_nsv_yr_2','nsv_yr_3': 'df1_nsv_yr_3','nsv_yr_1_rollup': 'df1_nsv_yr_1_rollup','nsv_yr_3_rollup': 'df1_nsv_yr_3_rollup'}, inplace=True )
+
+    # Adding 3 year rolling NSV 
+    result_concat['df2_nsv_3yr_rollling']= result_concat['df2_nsv_year'].fillna(0)+ result_concat['df2_nsv_wrap'].fillna(0)
+    result_concat['df1_nsv_3yr_rollling']= result_concat['df1_nsv_year'].fillna(0)+ result_concat['df1_nsv_wrap'].fillna(0)
+
+    return(result_concat)
 
 
 def sql_process(df):
@@ -179,14 +199,12 @@ def main():
     expander.write("User can edit this file to add/delete Projects.")
     expander.write("To Add Projects, mention ADD in Action column.")
     expander.write("To Delete Projects, change the Action value to DELETE ")
-    #st.sidebar.markdown("----")
-    #st.sidebar.markdown('Download the excel to perform the Actions. [Download](https://docs.google.com/spreadsheets/d/1F6Dd7_MgyqBCnsy1UbQPLk5NRw_TSaEDqazrCAojtMg/edit?usp=sharing)')
     # Download Functionality
-    st.sidebar.download_button("Download the Pre data",df_raw.to_csv(index=False),file_name="Pre_Launch Data.csv",mime="text/csv",help='mmmm')
-    st.sidebar.subheader('Upload the new Pre data file')
+    st.sidebar.download_button("Download the Pre Launch Data",df_raw.to_csv(index=False),file_name="Pre_Launch Data.csv",mime="text/csv")
+    st.sidebar.subheader('Upload simulation Excel file')
 
     #upload user input file
-    uploaded_file_df1 = st.sidebar.file_uploader(" ", type=["xlsx", "xls","csv"])
+    uploaded_file_df1 = st.sidebar.file_uploader(" ", type=["csv"])
 
     if uploaded_file_df1:
             df1 = pd.read_csv(uploaded_file_df1)
@@ -196,14 +214,15 @@ def main():
             df1['launch_dt'] = df1['launch_dt'].dt.strftime('%Y-%m-%d')
             user_input_data = copy.deepcopy(df1)
 
-            result = sql_process(df1)
-            st.write('Processed Data',Process_data(result))
+            sql_result = sql_process(df1)
+            final = Process_data(sql_result,df_org)
+            st.write('Processed Data',final)
 
             col1,col2=st.columns(2) 
             with col1:
-                plot_bar(result)
+                plot_bar(final)
             with col2:
-                plot_bar2(result)
+                plot_bar2(final)
 
     
             # st.write(df1)
