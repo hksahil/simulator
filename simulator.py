@@ -12,6 +12,8 @@ from matplotlib import style
 st.set_page_config(page_title='Kellogg Dynamic Modelling Simulator',page_icon=':smile:',layout='wide')
 st.set_option('deprecation.showPyplotGlobalUse', False)
 
+if "load_state" not in st.session_state:
+    st.session_state.load_state=False
 # CSS
 hide_st_style = """
             <style>
@@ -215,6 +217,7 @@ def main():
     uploaded_file_df1 = st.sidebar.file_uploader(" ", type=["csv"])
 
     if uploaded_file_df1:
+            
             df1 = pd.read_csv(uploaded_file_df1)
             df1.sort_values(by='Action',ascending=True,inplace=True)
 
@@ -242,7 +245,8 @@ def main():
             # Button to simulate
             button_pressed = st.button("Start the Simulation")
 
-            if button_pressed:
+            if button_pressed or st.session_state.load_state:
+                st.session_state.load_state=True
                 # Deleting the user selected rows 
                 sql_result = sql_process(q)
                 final = Process_data(sql_result,raw_copy)
