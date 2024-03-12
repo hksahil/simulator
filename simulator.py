@@ -33,63 +33,66 @@ df_raw.set_index('Action', inplace=True)
 df_raw.sort_values(by='Proj_id',ascending=True,inplace=True)
 
 # To calculate 1 Year Rolling NSV
-def df1_calculate_rolling_nsv(row):
+def old_calculate_rolling_nsv(row):
     if row['launch_yr'] == row['yr_of_nsv']:
-        #print(result_concat['df1_launch_yr'],result_concat['df1_yr_of_nsv'],'in first loop',)
-        return row['df1_nsv_year']
+        return row['old_nsv_year']
     elif row['launch_yr'] == row['yr_of_nsv'] - 1:
-        #print(result_concat['df1_launch_yr'],result_concat['df1_yr_of_nsv'],'in second loop',)
-        return row['df1_nsv_wrap']
+        return row['old_nsv_wrap']
     else:
-        #print(result_concat['df1_launch_yr'],result_concat['df1_yr_of_nsv'],'in third loop',)
         return 0
     
-def df2_calculate_rolling_nsv(row):
+def new_calculate_rolling_nsv(row):
     if row['launch_yr'] == row['yr_of_nsv']:
-        #print(result_concat['df1_launch_yr'],result_concat['df1_yr_of_nsv'],'in first loop',)
-        return row['df2_nsv_year']
+        return row['new_nsv_year']
     elif row['launch_yr'] == row['yr_of_nsv'] - 1:
-        #print(result_concat['df1_launch_yr'],result_concat['df1_yr_of_nsv'],'in second loop',)
-        return row['df2_nsv_wrap']
+        return row['new_nsv_wrap']
     else:
-        #print(result_concat['df1_launch_yr'],result_concat['df1_yr_of_nsv'],'in third loop',)
         return 0
     
+def remove_decimal(number):
+    if number.endswith('.0'):
+        return number[:-2]
+    else:
+        return number
+
 def Process_data(df,dfx): 
 
     dfx.rename(columns={'fltr':'filter'}, inplace=True )
     # Deleting the values
-    df['df2_nsv_yr_1'] = [None if row['flag'] == True  else row['df2_nsv_yr_1'] for index, row in df.iterrows()]
-    df['df2_nsv_yr_2'] = [None if row['flag'] == True else row['df2_nsv_yr_2'] for index, row in df.iterrows()]
-    df['df2_nsv_yr_3'] = [None if row['flag'] == True  else row['df2_nsv_yr_3'] for index, row in df.iterrows()]
-    df['df2_nsv_yr_1_rollup'] = [None if row['flag'] ==True else row['df2_nsv_yr_1_rollup'] for index, row in df.iterrows()]
-    df['df2_nsv_yr_3_rollup'] = [None if row['flag'] ==True  else row['df2_nsv_yr_3_rollup'] for index, row in df.iterrows()]
-    df['df2_nsv_year'] = [None if row['flag'] ==True else row['df2_nsv_year'] for index, row in df.iterrows()]
-    df['df2_nsv_wrap'] = [None if row['flag'] ==True else row['df2_nsv_wrap'] for index, row in df.iterrows()]
+    df['new_nsv_yr_1'] = [None if row['flag'] == False  else row['new_nsv_yr_1'] for index, row in df.iterrows()]
+    df['new_nsv_yr_2'] = [None if row['flag'] == False else row['new_nsv_yr_2'] for index, row in df.iterrows()]
+    df['new_nsv_yr_3'] = [None if row['flag'] == False  else row['new_nsv_yr_3'] for index, row in df.iterrows()]
+    df['new_nsv_yr_1_rollup'] = [None if row['flag'] ==False else row['new_nsv_yr_1_rollup'] for index, row in df.iterrows()]
+    df['new_nsv_yr_3_rollup'] = [None if row['flag'] ==False  else row['new_nsv_yr_3_rollup'] for index, row in df.iterrows()]
+    df['new_nsv_year'] = [None if row['flag'] ==False else row['new_nsv_year'] for index, row in df.iterrows()]
+    df['new_nsv_wrap'] = [None if row['flag'] ==False else row['new_nsv_wrap'] for index, row in df.iterrows()]
+
+    dfx['new_yr_of_nsv'] = [remove_decimal(str(num)) for num in dfx['yr_of_nsv']]
+    df['new_yr_of_nsv'] = [remove_decimal(str(num)) for num in df['yr_of_nsv']]
 
     #join measures from original to input file 
-    df['Combined'] = df['yr_of_nsv'].astype(str).str.rstrip('.0') + "_" + df['Project']
-    dfx['Combined'] = dfx['yr_of_nsv'].astype(str).str.rstrip('.0') + "_" + dfx['Project']
+    df['Combined'] = df['new_yr_of_nsv'] + "_" + df['Project']
+    dfx['Combined'] = dfx['new_yr_of_nsv'] + "_" + dfx['Project']
+    
+    # joining
+    result_concat = df.join(dfx.set_index("Combined"),how = 'left' ,rsuffix="_df1", on="Combined")
 
-    result_concat = df.join(dfx.set_index("Combined"),how = 'left' ,rsuffix="_df1", on="Combined" )
-    result_concat.drop(['Project_df1','Region_df1','Proj_id_df1','yr_of_nsv_df1','launch_dt_df1','launch_yr_df1'],axis=1, inplace=True )
-    result_concat.rename(columns={'nsv_yr':'df1_nsv_year','nsv_wrap':'df1_nsv_wrap','nsv_yr_1': 'df1_nsv_yr_1','nsv_yr_2': 'df1_nsv_yr_2','nsv_yr_3': 'df1_nsv_yr_3','nsv_yr_1_rollup': 'df1_nsv_yr_1_rollup','nsv_yr_3_rollup': 'df1_nsv_yr_3_rollup'}, inplace=True )
+    result_concat.drop(['Project_df1','Region_df1','Proj_id_df1','yr_of_nsv_df1','launch_dt_df1','launch_yr_df1','new_yr_of_nsv','new_yr_of_nsv_df1'],axis=1, inplace=True )
+    result_concat.rename(columns={'nsv_yr':'old_nsv_year','nsv_wrap':'old_nsv_wrap','nsv_yr_1': 'old_nsv_yr_1','nsv_yr_2': 'old_nsv_yr_2','nsv_yr_3': 'old_nsv_yr_3','nsv_yr_1_rollup': 'old_nsv_yr_1_rollup','nsv_yr_3_rollup': 'old_nsv_yr_3_rollup'}, inplace=True )
 
     # Adding 3 year rolling NSV 
-    result_concat['df2_nsv_3yr_rollling']= result_concat['df2_nsv_year'].fillna(0)+ result_concat['df2_nsv_wrap'].fillna(0)
-    result_concat['df1_nsv_3yr_rollling']= result_concat['df1_nsv_year'].fillna(0)+ result_concat['df1_nsv_wrap'].fillna(0)
-    result_concat['df2_nsv_3yr_rollling'] = [None if row['flag'] ==True else row['df2_nsv_3yr_rollling'] for index, row in result_concat.iterrows()]
+    result_concat['new_nsv_3yr_rollling']= result_concat['new_nsv_year'].fillna(0)+ result_concat['new_nsv_wrap'].fillna(0)
+    result_concat['old_nsv_3yr_rollling']= result_concat['old_nsv_year'].fillna(0)+ result_concat['old_nsv_wrap'].fillna(0)
+    result_concat['new_nsv_3yr_rollling'] = [None if row['flag'] ==False else row['new_nsv_3yr_rollling'] for index, row in result_concat.iterrows()]
 
     # Apply the function to create the column
-    result_concat['df1_1 Year Rolling NSV'] = result_concat.apply(df1_calculate_rolling_nsv, axis=1)
-    result_concat['df2_1 Year Rolling NSV'] = result_concat.apply(df2_calculate_rolling_nsv, axis=1)
-    result_concat['df2_1 Year Rolling NSV'] = [None if row['flag'] ==True else row['df2_1 Year Rolling NSV'] for index, row in result_concat.iterrows()]
+    result_concat['old_1 Year Rolling NSV'] = result_concat.apply(old_calculate_rolling_nsv, axis=1)
+    result_concat['new_1 Year Rolling NSV'] = result_concat.apply(new_calculate_rolling_nsv, axis=1)
+    result_concat['new_1 Year Rolling NSV'] = [None if row['flag'] ==False else row['new_1 Year Rolling NSV'] for index, row in result_concat.iterrows()]
 
     return(result_concat)
 
-
 def sql_process(df):
-    
     # Processing the table 
     z_df1 = duckdb.query("""
             select *  from ( 
@@ -137,15 +140,13 @@ def sql_process(df):
 
     #Renaming and dropping few of the columns 
     z_df1.drop(['launch_month','mm_nsv','curr_yr'],axis=1,inplace=True)
-    z_df1.rename(columns={'year_of_nsv':'yr_of_nsv', 'launch_year':'launch_yr','filtr':'filter','yearly_total':'df2_nsv_year','next_mm_nsv':'df2_nsv_wrap','nsv_yr_1': 'df2_nsv_yr_1','nsv_yr_2': 'df2_nsv_yr_2','nsv_yr_3': 'df2_nsv_yr_3','nsv_yr_1_rollup': 'df2_nsv_yr_1_rollup','nsv_yr_3_rollup': 'df2_nsv_yr_3_rollup'}, inplace=True)
-    
-
+    z_df1.rename(columns={'year_of_nsv':'yr_of_nsv', 'launch_year':'launch_yr','filtr':'filter','yearly_total':'new_nsv_year','next_mm_nsv':'new_nsv_wrap','nsv_yr_1': 'new_nsv_yr_1','nsv_yr_2': 'new_nsv_yr_2','nsv_yr_3': 'new_nsv_yr_3','nsv_yr_1_rollup': 'new_nsv_yr_1_rollup','nsv_yr_3_rollup': 'new_nsv_yr_3_rollup'}, inplace=True)
     return(z_df1)
 
 def plot_bar(df):
-    st.write(df['Project'].count())
-    yr_nsv = df.groupby('Region')[['df1_nsv_3yr_rollling', 'df2_nsv_3yr_rollling']].sum().reset_index()
-    st.write(yr_nsv)
+    df['old_nsv_3yr_rollling']=df['old_nsv_3yr_rollling'].round(2)
+    df['new_nsv_3yr_rollling']=df['new_nsv_3yr_rollling'].round(2)
+    yr_nsv = df.groupby('Region')[['old_nsv_3yr_rollling', 'new_nsv_3yr_rollling']].sum().reset_index()
     # Plotting
     fig, ax = plt.subplots(figsize=(10, 6))
     # Width of the bars
@@ -153,8 +154,8 @@ def plot_bar(df):
     # Index for the x-axis
     ind = range(len(yr_nsv))
     # Plotting old sales
-    old_sales = ax.bar(ind, yr_nsv['df1_nsv_3yr_rollling']/4, bar_width, label='Old Sales')
-    new_sales = ax.bar([i + bar_width for i in ind], yr_nsv['df2_nsv_3yr_rollling']/4, bar_width, label='New Sales')
+    old_sales = ax.bar(ind, yr_nsv['old_nsv_3yr_rollling']/4, bar_width, label='Old Sales')
+    new_sales = ax.bar([i + bar_width for i in ind], yr_nsv['new_nsv_3yr_rollling']/4, bar_width, label='New Sales')
     # Setting labels and title
     ax.set_xlabel('Region')
     ax.set_ylabel('NSV 3 year rolling')
@@ -165,10 +166,13 @@ def plot_bar(df):
     ax.legend()
     # Show plot
     st.pyplot()
+    yr_nsv['Difference'] = yr_nsv['new_nsv_3yr_rollling'] - yr_nsv['old_nsv_3yr_rollling']
+    st.dataframe(yr_nsv,height=175)
 
 def plot_bar2(df):
-    yr_nsv = df.groupby('yr_of_nsv')[['df1_nsv_3yr_rollling', 'df2_nsv_3yr_rollling']].sum().reset_index()
-    st.write(yr_nsv)
+    df['old_nsv_3yr_rollling']=df['old_nsv_3yr_rollling'].round(2)
+    df['new_nsv_3yr_rollling']=df['new_nsv_3yr_rollling'].round(2)
+    yr_nsv = df.groupby('yr_of_nsv')[['old_nsv_3yr_rollling', 'new_nsv_3yr_rollling']].sum().reset_index()
     # Plotting
     fig, ax = plt.subplots(figsize=(10, 6))
     # Width of the bars
@@ -176,8 +180,8 @@ def plot_bar2(df):
     # Index for the x-axis
     ind = range(len(yr_nsv))
     # Plotting old sales
-    old_sales = ax.bar(ind, yr_nsv['df1_nsv_3yr_rollling']/4, bar_width, label='Old Sales')
-    new_sales = ax.bar([i + bar_width for i in ind], yr_nsv['df2_nsv_3yr_rollling']/4, bar_width, label='New Sales')
+    old_sales = ax.bar(ind, yr_nsv['old_nsv_3yr_rollling']/4, bar_width, label='Old Sales')
+    new_sales = ax.bar([i + bar_width for i in ind], yr_nsv['new_nsv_3yr_rollling']/4, bar_width, label='New Sales')
     # Setting labels and title
     ax.set_xlabel('Original Year of NSV')
     ax.set_ylabel('NSV 3 year rolling')
@@ -188,7 +192,9 @@ def plot_bar2(df):
     ax.legend()
     # Show plot
     st.pyplot()
-     
+    yr_nsv['Difference'] = yr_nsv['new_nsv_3yr_rollling'] - yr_nsv['old_nsv_3yr_rollling']
+    st.dataframe(yr_nsv,height=175)
+
 def main():
     #st.title('Kellogg POC Simulator')
     st.markdown("<span style='color:#f60b45;font-size:44px;font-family:Source Sans Pro;font-weight:700'>Pre Data Dynamic Modelling Simulator</span>",
@@ -210,6 +216,7 @@ def main():
 
     if uploaded_file_df1:
             df1 = pd.read_csv(uploaded_file_df1)
+            df1.sort_values(by='Action',ascending=True,inplace=True)
 
             # changing the data type and format of launch date
             df1['launch_dt'] = pd.to_datetime(df1['launch_dt'])
@@ -220,32 +227,35 @@ def main():
             df_filtered = dynamic_filters.filter_df()
 
             # Checkbox 
-            df_filtered['flag']=False
+            df_filtered['flag']=True
             df_filtered.insert(0, 'flag', df_filtered.pop('flag'))
             df_filtered.insert(1, 'Project', df_filtered.pop('Project'))
             q=st.data_editor(df_filtered,    column_config={
             "flag": st.column_config.CheckboxColumn(
-                "Delete",
+                "Include",
                 help="Select the projects you want to delete",
-                default=True,
+                default=False,
             )},disabled=['Project','Proj_id','Action','launch_yr','launch_dt','Region','nsv_yr_1','nsv_yr_2','nsv_yr_3'],hide_index=True,)
             #df_deletion_new=q[q['flag']==False]
             #st.write('q',q)
 
             # Button to simulate
-            button_pressed = st.button("Delete the Selection")
+            button_pressed = st.button("Start the Simulation")
 
             if button_pressed:
                 # Deleting the user selected rows 
                 sql_result = sql_process(q)
                 final = Process_data(sql_result,raw_copy)
-                st.write('The Processed Data',final)
+                final.sort_values(by='Proj_id',ascending=False,inplace=True)
+                final.drop(['flag'],axis=1,inplace=True)
+                #st.write('The Processed Data',final)
 
                 col1,col2=st.columns(2) 
                 with col1:
                     plot_bar(final)
                 with col2:
                     plot_bar2(final)
+                st.write('The Processed Data',final)
     
 
 if __name__ == "__main__":
