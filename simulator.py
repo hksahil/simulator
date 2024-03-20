@@ -7,6 +7,7 @@ import copy
 import duckdb
 from streamlit_dynamic_filters import DynamicFilters
 from matplotlib import style
+from millify import millify
 
 # Page Settings
 st.set_page_config(page_title='Kellogg Dynamic Modelling Simulator',page_icon=':smile:',layout='wide')
@@ -47,21 +48,21 @@ df_raw_copy.sort_values(by='Proj_id',ascending=False,inplace=True)
 
 # To calculate 1 Year Rolling NSV/iNSV(s)
 def calculate_rolling_values(row, doll_year, doll_wrap):
-    if row['launch_yr'] == row['yr_of_nsv']:
+    if row['Launch Year'] == row['Year of NSV']:
         return row[doll_year]
-    elif row['launch_yr'] == row['yr_of_nsv'] - 1:
+    elif row['Launch Year'] == row['Year of NSV'] - 1:
         return row[doll_wrap]
     else:
         return 0
 
 def weighted_average_of_group(df,dim_selected):
-
-    df['Weighted_Score1'] = df['old_gross_mrgn_pct'] * df['old_nsv_yr_1']
-    df['Weighted_Score2'] = df['new_gross_mrgn_pct'] * df['new_nsv_yr_1']
+    df = df[df['Filter']==1]
+    df['Weighted_Score1'] = df['Old Gross Margin Pct'] * df['Old NSV Year 1']
+    df['Weighted_Score2'] = df['New Gross Margin Pct'] * df['New NSV Year 1']
 
     weighted_avg_df = df.groupby(dim_selected).apply(lambda x: pd.Series({
-        'old_Weighted_Average_Score': x['Weighted_Score1'].sum() / x['old_nsv_yr_1'].sum(),
-        'new_Weighted_Average_Score': x['Weighted_Score2'].sum() / x['new_nsv_yr_1'].sum()
+        'Old Gross Margin WA Pct': x['Weighted_Score1'].sum() / x['Old NSV Year 1'].sum(),
+        'New Gross Margin WA Pct': x['Weighted_Score2'].sum() / x['New NSV Year 1'].sum()
     })).reset_index()
     return (weighted_avg_df)
 
@@ -72,82 +73,86 @@ def remove_decimal(number):
         return number
 
 def Process_data(df, dfx):
-    # Rename columns
-    dfx.rename(columns={'fltr': 'filter'}, inplace=True)
+    # # Rename columns
+    # dfx.rename(columns={'fltr': 'filter'}, inplace=True)
     
     # Replace values based on condition
-    columns_to_replace = ['new_nsv_yr_1', 'new_nsv_yr_2', 'new_nsv_yr_3', 
-                          'new_nsv_yr_1_rollup', 'new_nsv_yr_3_rollup', 
-                          'new_nsv_year', 'new_nsv_wrap', 
-                          'new_insv_yr_1', 'new_insv_yr_2', 'new_insv_yr_3', 
-                          'new_insv_yr_1_rollup', 'new_insv_yr_3_rollup', 
-                          'new_insv_year', 'new_insv_wrap', 
-                          'new_canblz_pct', 'new_gross_mrgn_pct', 
-                          'new_rd_days',
-                          'new_gsv_yr_1','new_gsv_yr_1','new_gsv_yr_3','new_gsv_yr_1_rollup',
-                          'new_gsv_yr_3_rollup','new_gsv_year','new_gsv_wrap']
+    columns_to_replace = ['New NSV Year 1', 'New NSV Year 2', 'New NSV Year 3', 
+                          'New NSV Year 1 Rollup', 'New NSV Year 3 Rollup', 
+                          'New NSV Year', 'New NSV Wrap', 
+                          'New iNSV Year 1', 'New iNSV Year 2', 'New iNSV Year 3', 
+                          'New iNSV Year 1 Rollup', 'New iNSV Year 3 Rollup', 
+                          'New iNSV Year', 'New iNSV Wrap', 
+                          'New Canblz Pct', 'New Gross Margin Pct', 
+                          'New R&D Days',
+                          'New GSV Year 1','New GSV Year 2','New GSV Year 3','New GSV Year 1 Rollup',
+                          'New GSV Year 3 Rollup','New GSV Year','New GSV Wrap']
     for column in columns_to_replace:
         df[column] = [row[column] if row['flag'] else None for i, row in df.iterrows()]
     
     # Convert 'yr_of_nsv' to string and remove decimal
     dfx['new_yr_of_nsv'] = dfx['yr_of_nsv'].astype(str).apply(remove_decimal)
-    df['new_yr_of_nsv'] = df['yr_of_nsv'].astype(str).apply(remove_decimal)
-    dfx['gross_mrgn_pct'] = dfx['gross_mrgn_pct'].fillna(0)
-    df['gross_mrgn_pct'] = df['new_gross_mrgn_pct'].fillna(0)
-    dfx['gross_mrgn_pct'] = dfx['gross_mrgn_pct'].astype('int64')
-    df['gross_mrgn_pct'] = df['gross_mrgn_pct'].astype('int64')
+    df['new_yr_of_nsv'] = df['Year of NSV'].astype(str).apply(remove_decimal)
     
     # Create 'Combined' column for joining
     df['Combined'] = df['new_yr_of_nsv'] + "_" + df['Project']
     dfx['Combined'] = dfx['new_yr_of_nsv'] + "_" + dfx['Project']
     
+    df[['porfolio_bucket','bu','Region','proj_desc']] = df[['porfolio_bucket','bu','Region','proj_desc']].fillna('No Data')
+
     # Join DataFrames
     result_concat = df.join(dfx.set_index("Combined"), how='left', rsuffix="_df1", on="Combined")
     
     # Drop unnecessary columns and rename remaining columns
-    columns_to_drop = ['Project_df1', 'Region_df1', 'Proj_id_df1', 'yr_of_nsv_df1', 'launch_dt_df1', 
-                       'launch_yr_df1', 'new_yr_of_nsv', 'new_yr_of_nsv_df1']
+    columns_to_drop = ['Project_df1', 'Region_df1', 'Proj_id_df1', 'yr_of_nsv', 'launch_dt_df1', 
+                       'launch_yr', 'new_yr_of_nsv', 'new_yr_of_nsv_df1','launch_mth','fltr','nsv_yr_risk_adj','nsv_wrap_risk_adj','insv_yr_risk_adj','insv_wrap_risk_adj','gsv_yr_risk_adj',
+              'gsv_wrap_risk_adj','bu_df1','food_catg_short','proj_type_short','brand_short','stage_gate_full','proj_yr','geog_nm','bu_nm','bus_catg_nm',
+              'proj_desc_df1','food_catg','mktg_or_scr_lead','proj_type','big_bets','tier','porfolio_bucket_df1','brand','priority_advatage_brand','mfg_loc',
+              'stage_gate','pd_or_ft_days_df1','pkg_days_df1','project_id','insrt_dt']
     result_concat.drop(columns_to_drop, axis=1, inplace=True)
-    result_concat.rename(columns={'nsv_yr': 'old_nsv_year', 'nsv_wrap': 'old_nsv_wrap', 
-                                  'nsv_yr_1': 'old_nsv_yr_1', 'nsv_yr_2': 'old_nsv_yr_2', 
-                                  'nsv_yr_3': 'old_nsv_yr_3', 'nsv_yr_1_rollup': 'old_nsv_yr_1_rollup', 
-                                  'nsv_yr_3_rollup': 'old_nsv_yr_3_rollup', 'insv_yr': 'old_insv_year', 
-                                  'insv_wrap': 'old_insv_wrap', 'insv_yr_1': 'old_insv_yr_1', 
-                                  'insv_yr_2': 'old_insv_yr_2', 'insv_yr_3': 'old_insv_yr_3', 
-                                  'insv_yr_1_rollup': 'old_insv_yr_1_rollup', 'insv_yr_3_rollup': 'old_insv_yr_3_rollup', 
-                                  'rd_days': 'old_rd_days', 'canblz_pct': 'old_canblz_pct', 
-                                  'gross_mrgn_pct': 'old_gross_mrgn_pct',
-                                  'gsv_yr_1':'old_gsv_yr_1','gsv_yr_2':'old_gsv_yr_2','gsv_yr_3':'old_gsv_yr_3',
-                                  'gsv_yr_1_rollup':'old_gsv_yr_1_rollup','gsv_yr_3_rollup':'old_gsv_yr_3_rollup', 
-                                  'gsv_yr':'old_gsv_year','gsv_wrap':'old_gsv_wrap'
-                                  }, inplace=True)
-    # Adding 3 year rolling NSV 
-    result_concat['new_3_year_rolling_nsv']= result_concat['new_nsv_year'].fillna(0)+ result_concat['new_nsv_wrap'].fillna(0)
-    result_concat['old_3_year_rolling_nsv']= result_concat['old_nsv_year'].fillna(0)+ result_concat['old_nsv_wrap'].fillna(0)
-    result_concat['new_3_year_rolling_nsv'] = [None if row['flag'] ==False else row['new_3_year_rolling_nsv'] for index, row in result_concat.iterrows()]
-    # Adding 3 year rolling iNSV 
-    result_concat['new_3_year_rolling_insv']= result_concat['new_insv_year'].fillna(0)+ result_concat['new_insv_wrap'].fillna(0)
-    result_concat['old_3_year_rolling_insv']= result_concat['old_insv_year'].fillna(0)+ result_concat['old_insv_wrap'].fillna(0)
-    result_concat['new_3_year_rolling_insv'] = [None if row['flag'] ==False else row['new_3_year_rolling_insv'] for index, row in result_concat.iterrows()]
 
-    result_concat['new_3_year_rolling_gsv']= result_concat['new_gsv_year'].fillna(0)+ result_concat['new_gsv_wrap'].fillna(0)
-    result_concat['old_3_year_rolling_gsv']= result_concat['old_gsv_year'].fillna(0)+ result_concat['old_gsv_wrap'].fillna(0)
-    result_concat['new_3_year_rolling_gsv'] = [None if row['flag'] ==False else row['new_3_year_rolling_gsv'] for index, row in result_concat.iterrows()]
+    result_concat.rename(columns={'nsv_yr': 'Old NSV Year', 'nsv_wrap': 'Old NSV Wrap', 
+                                  'nsv_yr_1': 'Old NSV Year 1', 'nsv_yr_2': 'Old NSV Year 2', 
+                                  'nsv_yr_3': 'Old NSV Year 3', 'nsv_yr_1_rollup': 'Old NSV Year 1 Rollup', 
+                                  'nsv_yr_3_rollup': 'Old NSV Year 3 Rollup', 'insv_yr': 'Old iNSV Year', 
+                                  'insv_wrap': 'Old iNSV Wrap', 'insv_yr_1': 'Old iNSV Year 1', 
+                                  'insv_yr_2': 'Old iNSV Year 2', 'insv_yr_3': 'Old iNSV Year 3', 
+                                  'insv_yr_1_rollup': 'Old iNSV Year 1 ROllup', 'insv_yr_3_rollup': 'Old iNSV Year 3 Rollup', 
+                                  'rd_days': 'Old R&D Days', 'canblz_pct': 'Old Canblz Pct', 
+                                  'gross_mrgn_pct': 'Old Gross Margin Pct',
+                                  'gsv_yr_1':'Old GSV Year 1','gsv_yr_2':'Old GSV Year 2','gsv_yr_3':'Old GSV Year 3',
+                                  'gsv_yr_1_rollup':'Old GSV Year 1 Rollup','gsv_yr_3_rollup':'Old GSV Year 3 Rollup', 
+                                  'gsv_yr':'Old GSV Year','gsv_wrap':'Old GSV Wrap',
+                                  'porfolio_bucket':'Porfolio Bucket','bu':'BU','Proj_id':'Project ID','proj_desc':'Project Desc','launch_dt':'Launch Date'
+                                  }, inplace=True)
+    
+    # Adding 3 year rolling NSV 
+    result_concat['New 3 Year Rolling NSV']= result_concat['New NSV Year'].fillna(0)+ result_concat['New NSV Wrap'].fillna(0)
+    result_concat['Old 3 Year Rolling NSV']= result_concat['Old NSV Year'].fillna(0)+ result_concat['Old NSV Wrap'].fillna(0)
+    result_concat['New 3 Year Rolling NSV'] = [None if row['flag'] ==False else row['New 3 Year Rolling NSV'] for index, row in result_concat.iterrows()]
+    # Adding 3 year rolling iNSV 
+    result_concat['New 3 Year Rolling iNSV']= result_concat['New iNSV Year'].fillna(0)+ result_concat['New iNSV Wrap'].fillna(0)
+    result_concat['Old 3 Year Rolling iNSV']= result_concat['Old iNSV Year'].fillna(0)+ result_concat['Old iNSV Wrap'].fillna(0)
+    result_concat['New 3 Year Rolling iNSV'] = [None if row['flag'] ==False else row['New 3 Year Rolling iNSV'] for index, row in result_concat.iterrows()]
+
+    result_concat['New 3 Year Rolling GSV']= result_concat['New GSV Year'].fillna(0)+ result_concat['New GSV Wrap'].fillna(0)
+    result_concat['Old 3 Year Rolling GSV']= result_concat['Old GSV Year'].fillna(0)+ result_concat['Old GSV Wrap'].fillna(0)
+    result_concat['New 3 Year Rolling GSV'] = [None if row['flag'] ==False else row['New 3 Year Rolling GSV'] for index, row in result_concat.iterrows()]
 
     # Calculate rolling NSV
-    result_concat['old_1_year_rolling_nsv'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'old_nsv_year', 'old_nsv_wrap'), axis=1)
-    result_concat['new_1_year_rolling_nsv'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'new_nsv_year', 'new_nsv_wrap'), axis=1)
-    result_concat['new_1_year_rolling_nsv'] = result_concat['new_1_year_rolling_nsv'].where(result_concat['flag'], None)
+    result_concat['Old 1 Year Rolling NSV'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'Old NSV Year', 'Old NSV Wrap'), axis=1)
+    result_concat['New 1 Year Rolling NSV'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'New NSV Year', 'New NSV Wrap'), axis=1)
+    result_concat['New 1 Year Rolling NSV'] = result_concat['New 1 Year Rolling NSV'].where(result_concat['flag'], None)
 
     # Calculate rolling iNSV
-    result_concat['old_1_year_rolling_insv'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'old_insv_year', 'old_insv_wrap'), axis=1)
-    result_concat['new_1_year_rolling_insv'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'new_insv_year', 'new_insv_wrap'), axis=1)
-    result_concat['new_1_year_rolling_insv'] = result_concat['new_1_year_rolling_insv'].where(result_concat['flag'], None)
+    result_concat['Old 1 Year Rolling iNSV'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'Old iNSV Year', 'Old iNSV Wrap'), axis=1)
+    result_concat['New 1 Year Rolling iNSV'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'New iNSV Year', 'New iNSV Wrap'), axis=1)
+    result_concat['New 1 Year Rolling iNSV'] = result_concat['New 1 Year Rolling iNSV'].where(result_concat['flag'], None)
     
     #calculate rolling GSV
-    result_concat['old_1_year_rolling_gsv'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'old_gsv_year', 'old_gsv_wrap'), axis=1)
-    result_concat['new_1_year_rolling_gsv'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'new_gsv_year', 'new_gsv_wrap'), axis=1)
-    result_concat['new_1_year_rolling_gsv'] = result_concat['new_1_year_rolling_gsv'].where(result_concat['flag'], None)
+    result_concat['Old 1 Year Rolling GSV'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'Old GSV Year', 'Old GSV Wrap'), axis=1)
+    result_concat['New 1 Year Rolling GSV'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'New GSV Year', 'New GSV Wrap'), axis=1)
+    result_concat['New 1 Year Rolling GSV'] = result_concat['New 1 Year Rolling GSV'].where(result_concat['flag'], None)
 
     return result_concat
 
@@ -310,107 +315,90 @@ def sql_process(df):
                 from nsv_calc nsv left join insv_calc insv         
                 on nsv.Project=insv.Project and nsv.year_of_nsv=insv.year_of_nsv
                 left join gsv_calc gsv on nsv.Project=gsv.Project and nsv.year_of_nsv = gsv.year_of_nsv
-            
-
             )
              """
             ).df()
 
     #Renaming and dropping few of the columns 
-    z_df1.drop(['launch_mth'],axis=1,inplace=True)
-    z_df1.rename(columns={'year_of_nsv':'yr_of_nsv', 'launch_year':'launch_yr',
-                          'nsv_year':'new_nsv_year','insv_year':'new_insv_year','filtr':'filter','nsv_wrap':'new_nsv_wrap',
-                          'insv_wrap':'new_insv_wrap','insv_yr_1': 'new_insv_yr_1','insv_yr_2': 'new_insv_yr_2','insv_yr_3': 'new_insv_yr_3','insv_yr_1_rollup': 'new_insv_yr_1_rollup','insv_yr_3_rollup': 'new_insv_yr_3_rollup',
-                          'nsv_yr_1': 'new_nsv_yr_1','nsv_yr_2': 'new_nsv_yr_2','nsv_yr_3': 'new_nsv_yr_3','nsv_yr_1_rollup': 'new_nsv_yr_1_rollup','nsv_yr_3_rollup': 'new_nsv_yr_3_rollup','rd_days':'new_rd_days','canblz_pct':'new_canblz_pct',
-                          'gross_mrgn_pct':'new_gross_mrgn_pct',
-                          'gsv_yr_1':'new_gsv_yr_1','gsv_yr_2':'new_gsv_yr_2','gsv_yr_3':'new_gsv_yr_3','gsv_yr_3_rollup':'new_gsv_yr_3_rollup','gsv_yr_1_rollup':'new_gsv_yr_1_rollup','gsv_wrap':'new_gsv_wrap','gsv_year':'new_gsv_year'}, inplace=True)
+    z_df1.drop(['mm_insv','launch_mth'],axis=1,inplace=True)
+    z_df1.rename(columns={'yr_of_nsv':'Year of NSV', 'launch_yr':'Launch Year',
+                          'nsv_year':'New NSV Year','insv_year':'New iNSV Year','fltr':'Filter','nsv_wrap':'New NSV Wrap',
+                          'insv_wrap':'New iNSV Wrap','insv_yr_1': 'New iNSV Year 1','insv_yr_2': 'New iNSV Year 2','insv_yr_3': 'New iNSV Year 3','insv_yr_1_rollup': 'New iNSV Year 1 Rollup','insv_yr_3_rollup': 'New iNSV Year 3 Rollup',
+                          'nsv_yr_1': 'New NSV Year 1','nsv_yr_2': 'New NSV Year 2','nsv_yr_3': 'New NSV Year 3','nsv_yr_1_rollup': 'New NSV Year 1 Rollup','nsv_yr_3_rollup': 'New NSV Year 3 Rollup','rd_days':'New R&D Days','canblz_pct':'New Canblz Pct',
+                          'gross_mrgn_pct':'New Gross Margin Pct',
+                          'gsv_yr_1':'New GSV Year 1','gsv_yr_2':'New GSV Year 2','gsv_yr_3':'New GSV Year 3','gsv_yr_3_rollup':'New GSV Year 3 Rollup','gsv_yr_1_rollup':'New GSV Year 1 Rollup','gsv_wrap':'New GSV Wrap','gsv_year':'New GSV Year'}, inplace=True)
     return(z_df1)
 
 def plot_bar(df,measure,dim_selected):
-    # for measures
-    if measure == "1 year rolling nsv":
-        old_column = 'old_1_year_rolling_nsv'
-        new_column = 'new_1_year_rolling_nsv'
-        ylabel = '1 year nsv'
-    elif measure == "1 year rolling insv":
-        old_column = 'old_1_year_rolling_insv'
-        new_column = 'new_1_year_rolling_insv'
-        ylabel = '1 year insv'
-    elif measure == "3 year rolling nsv":
-        old_column = 'old_3_year_rolling_nsv'
-        new_column = 'new_3_year_rolling_nsv'
-        ylabel = '3 year nsv'
-    elif measure == "3 year rolling insv":
-        old_column = 'old_3_year_rolling_insv'
-        new_column = 'new_3_year_rolling_insv'
-        ylabel = '3 year insv'
-    elif measure == "R&D Days":
-        old_column = 'old_rd_days'
-        new_column = 'new_rd_days'
-        ylabel = '3 year r&d_days'
-    elif measure == "1 year rolling gsv":
-        old_column = 'old_1_year_rolling_gsv'
-        new_column = 'new_1_year_rolling_gsv'
-        ylabel = '3 year gsv'
-    elif measure == "3 year rolling gsv":
-        old_column = 'old_3_year_rolling_gsv'
-        new_column = 'new_3_year_rolling_gsv'
-        ylabel = '3 year gsv'
-    
+    old_column='Old '+ measure
+    new_column='New '+ measure
+    ylabel=measure
     df[old_column]=df[old_column].round(2)
     df[new_column]=df[new_column].round(2)
+    grp_by = df.groupby(dim_selected)[[old_column,new_column]].sum().reset_index()
     if measure == "R&D Days":
-        grp_by = df.groupby([dim_selected])[[old_column,new_column]].sum().reset_index()
         grp_by[old_column]=grp_by[old_column]/4
         grp_by[new_column]=grp_by[new_column]/4
-    else :
-        grp_by = df.groupby(dim_selected)[[old_column,new_column]].sum().reset_index()
-    # Plotting
-    fig, ax = plt.subplots(figsize=(10, 6))
-    # Width of the bars
-    bar_width = 0.2
-    # Index for the x-axis
-    ind = range(len(grp_by))
-    # Plotting old sales
-    old_sales = ax.bar(ind, grp_by[old_column], bar_width, label='Old Sales')
-    new_sales = ax.bar([i + bar_width for i in ind], grp_by[new_column], bar_width, label='New Sales')
-    # Setting labels and title
-    ax.set_xlabel(dim_selected)
-    ax.set_ylabel(ylabel)
-    ax.set_xticks([i + bar_width / 2 for i in ind])
-    ax.set_xticklabels(grp_by[dim_selected])
-    #ax.set(ylim=(10, 150))
-    ax.legend()
-    # Show plot
-    st.pyplot()
-    grp_by['Difference'] = grp_by[new_column] - grp_by[old_column]
-    st.dataframe(grp_by,height=175)
+    col1,col2=st.columns(2)
+    with col1 :
+        # Plotting
+        fig, ax = plt.subplots(figsize=(10, 6))
+        # Width of the bars
+        bar_width = 0.2
+        # Index for the x-axis
+        ind = range(len(grp_by))
+        # Plotting old sales
+        old_sales = ax.bar(ind, grp_by[old_column], bar_width, label='Old')
+        new_sales = ax.bar([i + bar_width for i in ind], grp_by[new_column], bar_width, label='New')
+        # Setting labels and title
+        ax.set_xlabel(dim_selected)
+        ax.set_ylabel(ylabel)
+        ax.set_xticks([i + bar_width / 2 for i in ind])
+        ax.set_xticklabels(grp_by[dim_selected])
+        #ax.set(ylim=(10, 150))
+        ax.legend()
+        # Show plot
+        st.pyplot()
+    with col2:
+        grp_by['Difference'] = grp_by[new_column] - grp_by[old_column]
+        grp_by['% Difference'] = (grp_by[new_column]/grp_by[old_column])-1
+        grp_by['Difference'] = grp_by['Difference'].round(2)
+        grp_by['% Difference']  = grp_by['% Difference'].round(4).astype(str) + '%'
+        st.dataframe(grp_by,height=275)
 
 def plot_gm(df,dim_selected):
     gm = weighted_average_of_group(df,dim_selected)
-    ylabel = 'gross margin'    
-    gm['old_Weighted_Average_Score']=gm['old_Weighted_Average_Score'].round(2)
-    gm['new_Weighted_Average_Score']=gm['new_Weighted_Average_Score'].round(2)
-    # Plotting
-    fig, ax = plt.subplots(figsize=(10, 6))
-    # Width of the bars
-    bar_width = 0.2
-    # Index for the x-axis
-    ind = range(len(gm))
-    # Plotting old sales
-    old_sales = ax.bar(ind,gm['old_Weighted_Average_Score'], bar_width, label='Old')
-    new_sales = ax.bar([i + bar_width for i in ind], gm['new_Weighted_Average_Score'], bar_width, label='New')
-    # Setting labels and title
-    ax.set_xlabel(dim_selected)
-    ax.set_ylabel(ylabel)
-    ax.set_xticks([i + bar_width / 2 for i in ind])
-    ax.set_xticklabels(gm[dim_selected])
-    #ax.set(ylim=(10, 150))
-    ax.legend()
-    # Show plot
-    st.pyplot()
-    gm['Difference'] = gm['new_Weighted_Average_Score'] - gm['old_Weighted_Average_Score']
-    st.dataframe(gm,height=175)
+    ylabel = 'Gross Margin %'  
+    gm['Old Gross Margin WA Pct']=gm['Old Gross Margin WA Pct'].round(2)
+    gm['New Gross Margin WA Pct']=gm['New Gross Margin WA Pct'].round(2)
+    col1,col2 = st.columns(2)
+    with col1:
+        # Plotting
+        fig, ax = plt.subplots(figsize=(10, 6))
+        # Width of the bars
+        bar_width = 0.2
+        # Index for the x-axis
+        ind = range(len(gm))
+        # Plotting old sales
+        old_sales = ax.bar(ind,gm['Old Gross Margin WA Pct'], bar_width, label='Old')
+        new_sales = ax.bar([i + bar_width for i in ind], gm['New Gross Margin WA Pct'], bar_width, label='New')
+        # Setting labels and title
+        ax.set_xlabel(dim_selected)
+        ax.set_ylabel(ylabel)
+        ax.set_xticks([i + bar_width / 2 for i in ind])
+        ax.set_xticklabels(gm[dim_selected])
+        #ax.set(ylim=(10, 150))
+        ax.legend()
+        # Show plot
+        st.pyplot()
+    with col2:
+        gm['Difference'] = gm['New Gross Margin WA Pct'] - gm['Old Gross Margin WA Pct'] 
+        #gm['% Difference'] = (gm['new_gross_margin_wa_pct']/gm['old_gross_margin_wa_pct'])-1
+        gm['Old Gross Margin WA Pct']=gm['Old Gross Margin WA Pct'].round(2).astype(str) + '%'
+        gm['New Gross Margin WA Pct']=gm['New Gross Margin WA Pct'].round(2).astype(str) + '%'
+        # gm['% Difference'] = gm['% Difference'].round(2)
+        gm['Difference'] = gm['Difference'].round(2)
+        st.dataframe(gm,height=175)
     
 def validate_main(df):
     # duplicate project names 
@@ -451,6 +439,48 @@ def validate_sub(df):
             errors.append(f"Warning: There are null values in column '{column}'.    Please provide the values for better result.")
     return errors
 
+def plot_comparison(final, measure_selected, group_by):
+    st.subheader(f'Old vs New {measure_selected} by {group_by}')
+    if measure_selected == 'Gross Margin %':
+        plot_gm(final, group_by)
+    else:
+        plot_bar(final, measure_selected, group_by)
+
+def kip_cards(df):
+
+    NSV =  millify(df['New 1 Year Rolling NSV'].sum(), precision=2)
+    iNSV = millify(df['New 1 Year Rolling iNSV'].sum(), precision=2, drop_nulls=False)
+    GSV = millify(df['New 1 Year Rolling GSV'].sum(), precision=2, drop_nulls=False)
+    NSV_3 =  millify(df['New 3 Year Rolling NSV'].sum(), precision=2)
+    iNSV_3 = millify(df['New 3 Year Rolling iNSV'].sum(), precision=2, drop_nulls=False)
+    GSV_3 = millify(df['New 3 Year Rolling GSV'].sum(), precision=2, drop_nulls=False)
+
+    col1,col2,col3,col4=st.columns(4)
+    with col1:
+        st.metric(label='New 1 Year Rolling NSV', value=NSV, delta=((df['New 1 Year Rolling NSV'].sum()/df['Old 1 Year Rolling NSV'].sum())-1).round(5))
+    with col2:
+        st.metric(label='New 1 Year Rolling iNSV', value=iNSV, delta=(df['New 1 Year Rolling iNSV'].sum()-df['Old 1 Year Rolling iNSV'].sum()).round(2))
+    with col3:
+        st.metric(label='New 1 Year Rolling GSV', value=GSV, delta=(df['New 1 Year Rolling GSV'].sum()-df['Old 1 Year Rolling GSV'].sum()).round(2))
+    with col4:
+       st.metric(label='R&D Days', value=df['New R&D Days'].sum(), delta=(df['New R&D Days'].sum()-df['Old R&D Days'].sum()).round(0))
+    
+    col1,col2,col3,col4=st.columns(4)
+    with col1:
+        st.metric(label='New 3 Year Rolling NSV', value=NSV_3, delta=(df['New 3 Year Rolling NSV'].sum()- df['Old 3 Year Rolling NSV'].sum()).round(2))
+    with col2:
+        st.metric(label='New 3 Year Rolling iNSV', value=iNSV_3, delta=(df['New 3 Year Rolling iNSV'].sum()- df['Old 3 Year Rolling iNSV'].sum()).round(2))
+    with col3:
+        st.metric(label='New 3 Year Rolling GSV', value=GSV_3, delta=(df['New 3 Year Rolling GSV'].sum()- df['Old 3 Year Rolling GSV'].sum()).round(2))
+    with col4:
+        df1 = df[df['Filter']==1]
+        df1['Weighted_Score1'] = df1['Old Gross Margin Pct'] * df1['Old NSV Year 1']
+        df1['Weighted_Score2'] = df1['New Gross Margin Pct'] * df1['New NSV Year 1']
+        wa_old =  (df1['Weighted_Score1'].sum()/df1['Old NSV Year 1'].sum()).round(2)
+        wa_new = (df1['Weighted_Score2'].sum()/df1['New NSV Year 1'].sum()).round(2)
+        st.metric(label='New Gross Margin %', value=wa_new, delta=(wa_new - wa_old).round(2))
+
+
 def main():
     #st.title('Kellogg POC Simulator')
     st.markdown("<span style='color:#f60b45;font-size:44px;font-family:Source Sans Pro;font-weight:700'>Pre Data Dynamic Modelling Simulator</span>",
@@ -488,9 +518,11 @@ def main():
             df_concat['launch_dt'] = pd.to_datetime(df_concat['launch_dt'])
             df_concat['launch_dt'] = df_concat['launch_dt'].dt.strftime('%Y-%m-%d')
             user_input_data = copy.deepcopy(df_concat)
-            dynamic_filters = DynamicFilters(df_concat, filters=['Project', 'Region'])
+            dynamic_filters = DynamicFilters(df_concat, filters=['Project', 'Region','porfolio_bucket','bu'])
             dynamic_filters.display_filters(location='sidebar')
             df_filtered = dynamic_filters.filter_df()
+            st.subheader('2. Start Modelling Simulator')
+            st.write('Check the data before starting Simulation. You can include/exclude projects for desired results.')
 
             # Checkbox 
             df_filtered['flag']=True
@@ -514,57 +546,27 @@ def main():
                 # Processing the data 
                 sql_result = sql_process(q)
                 final = Process_data(sql_result,raw_copy)
-                final.sort_values(by='Proj_id',ascending=False,inplace=True)
+                final.sort_values(by='Project ID',ascending=False,inplace=True)
                 final.drop(['flag','gm_pct_yr_1','gm_pct_yr_2','gm_pct_yr_3','file_nm','kortex_upld_ts'],axis=1,inplace=True)
-
+                st.subheader('3. Simulation Result')
+                st.info('Use the filters on the left to dynamically adjust the simulation results.', icon="ℹ️")
+                # KPI Cards
+                st.markdown("<span style='font-size:25px;font-family:Source Sans Pro;font-weight:700'>Scorecard</span>",
+             unsafe_allow_html=True)
+                kip_cards(final)
                 # Dropdown for the measure
                 measure_selected = st.selectbox("Select the Measure: ",
-                                                ('1 year rolling nsv','1 year rolling insv','1 year rolling gsv','3 year rolling nsv','3 year rolling insv','3 year rolling gsv',
-                                                 'R&D Days','Gross Margin'))
+                                                ('R&D Days','1 Year Rolling NSV','1 Year Rolling iNSV','1 Year Rolling GSV','3 Year Rolling NSV','3 Year Rolling iNSV','3 Year Rolling GSV',
+                                                 'Gross Margin %'))
                 
-                # Ploting the Region and Year of nsv
-                col1,col2=st.columns(2) 
-                with col1:
-                    if measure_selected == 'Gross Margin':
-                        plot_gm(final,'Region')
-                    else :
-                        st.subheader('Old vs new by Region')
-                        plot_bar(final,measure_selected,'Region')
-                with col2:
-                    if measure_selected =='R&D Days' or  measure_selected =='Gross Margin':
-                        st.text("The selected metric is not available at Year of NSV") 
-                    else : 
-                        st.subheader('Old vs new by Year of NSV')
-                        plot_bar(final,measure_selected,'yr_of_nsv')
-
-                # Ploting the Launch year and bu 
-                col1,col2=st.columns(2) 
-                with col1:
-                    if measure_selected == 'Gross Margin':
-                        plot_gm(final,'bu')
-                    else :
-                        st.subheader('Old vs new by BU')
-                        plot_bar(final,measure_selected,'bu')
-                with col2:
-                    if measure_selected == 'Gross Margin':
-                        plot_gm(final,'launch_yr')
-                    else :
-                        st.subheader('Old vs new by Launch Year')
-                        plot_bar(final,measure_selected,'launch_yr')
-
-                 # Ploting the Porfolio bucket
-                col1,col2=st.columns(2) 
-                with col1:
-                    if measure_selected == 'Gross Margin':
-                        plot_gm(final,'porfolio_bucket')
-                    else :
-                        st.subheader('Old vs new by porfolio bucket')
-                        plot_bar(final,measure_selected,'porfolio_bucket')
-                with col2:
-                    st.write() 
-                    
-                
-                st.write('The Processed Data',final)
+                plot_comparison(final, measure_selected, 'Region')
+                if measure_selected not in ['R&D Days','Gross Margin %']:
+                    plot_comparison(final, measure_selected, 'Year of NSV')
+                plot_comparison(final, measure_selected, 'BU')
+                plot_comparison(final, measure_selected, 'Launch Year')
+                plot_comparison(final, measure_selected, 'Porfolio Bucket')
+                st.subheader('The Processed Data') 
+                st.write(final)
     
 
 if __name__ == "__main__":
