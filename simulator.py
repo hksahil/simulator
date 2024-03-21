@@ -61,9 +61,10 @@ def weighted_average_of_group(df,dim_selected):
     df['Weighted_Score2'] = df['New Gross Margin Pct'] * df['New NSV Year 1']
 
     weighted_avg_df = df.groupby(dim_selected).apply(lambda x: pd.Series({
-        'Old Gross Margin WA Pct': x['Weighted_Score1'].sum() / x['Old NSV Year 1'].sum(),
-        'New Gross Margin WA Pct': x['Weighted_Score2'].sum() / x['New NSV Year 1'].sum()
+        'Old Gross Margin WA Pct': (x['Weighted_Score1'].sum() / x['Old NSV Year 1'].sum()),
+        'New Gross Margin WA Pct': (x['Weighted_Score2'].sum() / x['New NSV Year 1'].sum())
     })).reset_index()
+    
     return (weighted_avg_df)
 
 def remove_decimal(number):
@@ -134,7 +135,7 @@ def Process_data(df, dfx):
     result_concat['New 3 Year Rolling iNSV']= result_concat['New iNSV Year'].fillna(0)+ result_concat['New iNSV Wrap'].fillna(0)
     result_concat['Old 3 Year Rolling iNSV']= result_concat['Old iNSV Year'].fillna(0)+ result_concat['Old iNSV Wrap'].fillna(0)
     result_concat['New 3 Year Rolling iNSV'] = [None if row['flag'] ==False else row['New 3 Year Rolling iNSV'] for index, row in result_concat.iterrows()]
-
+    # Adding 3 year rolling GSV 
     result_concat['New 3 Year Rolling GSV']= result_concat['New GSV Year'].fillna(0)+ result_concat['New GSV Wrap'].fillna(0)
     result_concat['Old 3 Year Rolling GSV']= result_concat['Old GSV Year'].fillna(0)+ result_concat['Old GSV Wrap'].fillna(0)
     result_concat['New 3 Year Rolling GSV'] = [None if row['flag'] ==False else row['New 3 Year Rolling GSV'] for index, row in result_concat.iterrows()]
@@ -153,6 +154,12 @@ def Process_data(df, dfx):
     result_concat['Old 1 Year Rolling GSV'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'Old GSV Year', 'Old GSV Wrap'), axis=1)
     result_concat['New 1 Year Rolling GSV'] = result_concat.apply(lambda row: calculate_rolling_values(row, 'New GSV Year', 'New GSV Wrap'), axis=1)
     result_concat['New 1 Year Rolling GSV'] = result_concat['New 1 Year Rolling GSV'].where(result_concat['flag'], None)
+
+    float_column_names = result_concat.select_dtypes(float).columns
+    result_concat[float_column_names] = result_concat[float_column_names].fillna(0)
+
+    string_column_names = result_concat.select_dtypes(object).columns
+    result_concat[string_column_names] = result_concat[string_column_names].fillna('No Data')
 
     return result_concat
 
@@ -363,7 +370,7 @@ def plot_bar(df,measure,dim_selected):
         grp_by['Difference'] = grp_by[new_column] - grp_by[old_column]
         grp_by['% Difference'] = (grp_by[new_column]/grp_by[old_column])-1
         grp_by['Difference'] = grp_by['Difference'].round(2)
-        grp_by['% Difference']  = grp_by['% Difference'].round(4).astype(str) + '%'
+        grp_by['% Difference']  = grp_by['% Difference'].fillna(0).round(4).astype(str) + '%'
         st.dataframe(grp_by,height=275)
 
 def plot_gm(df,dim_selected):
@@ -397,7 +404,7 @@ def plot_gm(df,dim_selected):
         gm['Old Gross Margin WA Pct']=gm['Old Gross Margin WA Pct'].round(2).astype(str) + '%'
         gm['New Gross Margin WA Pct']=gm['New Gross Margin WA Pct'].round(2).astype(str) + '%'
         # gm['% Difference'] = gm['% Difference'].round(2)
-        gm['Difference'] = gm['Difference'].round(2)
+        gm['Difference'] = gm['Difference'].fillna(0).round(2)
         st.dataframe(gm,height=175)
     
 def validate_main(df):
@@ -433,6 +440,7 @@ def validate_main(df):
 
 def validate_sub(df):
     errors = []
+    df = df[df['Action']=='Add']
     columns_to_check = ['Region','bu','proj_desc','porfolio_bucket']
     for column in columns_to_check:
         if df[column].isnull().any():
@@ -440,7 +448,8 @@ def validate_sub(df):
     return errors
 
 def plot_comparison(final, measure_selected, group_by):
-    st.subheader(f'Old vs New {measure_selected} by {group_by}')
+
+    st.markdown(f"<span style='font-size:20px;font-family:Source Sans Pro;font-weight:300'>Old vs New {measure_selected} by {group_by}</span>",unsafe_allow_html=True)
     if measure_selected == 'Gross Margin %':
         plot_gm(final, group_by)
     else:
@@ -457,29 +466,28 @@ def kip_cards(df):
 
     col1,col2,col3,col4=st.columns(4)
     with col1:
-        st.metric(label='New 1 Year Rolling NSV', value=NSV, delta=((df['New 1 Year Rolling NSV'].sum()/df['Old 1 Year Rolling NSV'].sum())-1).round(5))
+        st.metric(label='New 1 Year Rolling NSV', value=NSV, delta=((df['New 1 Year Rolling NSV'].sum()/df['Old 1 Year Rolling NSV'].sum())-1).round(5).astype(str) + '%')
     with col2:
-        st.metric(label='New 1 Year Rolling iNSV', value=iNSV, delta=(df['New 1 Year Rolling iNSV'].sum()-df['Old 1 Year Rolling iNSV'].sum()).round(2))
+        st.metric(label='New 1 Year Rolling iNSV', value=iNSV, delta=((df['New 1 Year Rolling iNSV'].sum()/df['Old 1 Year Rolling iNSV'].sum())-1).round(2).astype(str) + '%')
     with col3:
-        st.metric(label='New 1 Year Rolling GSV', value=GSV, delta=(df['New 1 Year Rolling GSV'].sum()-df['Old 1 Year Rolling GSV'].sum()).round(2))
+        st.metric(label='New 1 Year Rolling GSV', value=GSV, delta=((df['New 1 Year Rolling GSV'].sum()/df['Old 1 Year Rolling GSV'].sum())-1).round(2).astype(str) + '%')
     with col4:
-       st.metric(label='R&D Days', value=df['New R&D Days'].sum(), delta=(df['New R&D Days'].sum()-df['Old R&D Days'].sum()).round(0))
+       st.metric(label='R&D Days', value=df['New R&D Days'].sum(), delta=((df['New R&D Days'].sum()/df['Old R&D Days'].sum())-1).round(0).astype(str) + '%')
     
     col1,col2,col3,col4=st.columns(4)
     with col1:
-        st.metric(label='New 3 Year Rolling NSV', value=NSV_3, delta=(df['New 3 Year Rolling NSV'].sum()- df['Old 3 Year Rolling NSV'].sum()).round(2))
+        st.metric(label='New 3 Year Rolling NSV', value=NSV_3, delta=((df['New 3 Year Rolling NSV'].sum()/df['Old 3 Year Rolling NSV'].sum())-1).round(2).astype(str) + '%')
     with col2:
-        st.metric(label='New 3 Year Rolling iNSV', value=iNSV_3, delta=(df['New 3 Year Rolling iNSV'].sum()- df['Old 3 Year Rolling iNSV'].sum()).round(2))
+        st.metric(label='New 3 Year Rolling iNSV', value=iNSV_3, delta=((df['New 3 Year Rolling iNSV'].sum()/df['Old 3 Year Rolling iNSV'].sum())-1).round(2).astype(str) + '%')
     with col3:
-        st.metric(label='New 3 Year Rolling GSV', value=GSV_3, delta=(df['New 3 Year Rolling GSV'].sum()- df['Old 3 Year Rolling GSV'].sum()).round(2))
+        st.metric(label='New 3 Year Rolling GSV', value=GSV_3, delta=((df['New 3 Year Rolling GSV'].sum()/ df['Old 3 Year Rolling GSV'].sum())-1).round(2).astype(str) + '%')
     with col4:
         df1 = df[df['Filter']==1]
         df1['Weighted_Score1'] = df1['Old Gross Margin Pct'] * df1['Old NSV Year 1']
         df1['Weighted_Score2'] = df1['New Gross Margin Pct'] * df1['New NSV Year 1']
         wa_old =  (df1['Weighted_Score1'].sum()/df1['Old NSV Year 1'].sum()).round(2)
         wa_new = (df1['Weighted_Score2'].sum()/df1['New NSV Year 1'].sum()).round(2)
-        st.metric(label='New Gross Margin %', value=wa_new, delta=(wa_new - wa_old).round(2))
-
+        st.metric(label='New Gross Margin %', value=wa_new.astype(str) + '%', delta=(wa_new - wa_old).round(2),help="The Difference is in pts")
 
 def main():
     #st.title('Kellogg POC Simulator')
@@ -488,17 +496,15 @@ def main():
 
     st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Kellanova_logo.svg/1200px-Kellanova_logo.svg.png",width=150)
     
-    expander = st.sidebar.expander("How to use this Tool?")
-    expander.write("Download the file containing pre data from the button below")
-    expander.write("User can edit this file to add/delete Projects.")
-    expander.write("To Add Projects, mention ADD in Action column.")
-    expander.write("To Delete Projects, change the Action value to DELETE ")
-    # Download Functionality
-    st.sidebar.download_button("Download the Pre Launch Data",df_raw.to_csv(index=True),file_name="Pre_Launch Data.csv",mime="text/csv")
-    st.sidebar.subheader('Upload simulation Excel file')
+    st.sidebar.write('The Simulator helps user to understand the different scenario for Pre-Launched Data.\n\n Users can Add, Edit and/or Delete any number of projects to see the difference')
+    # Download Functionality 
+    st.subheader('1. Upload Simulation File')
+    st.write('Download latest Pre-Launch data and add projects for simulation.')
+    st.download_button("Download the Pre Launch Data",df_raw.to_csv(index=True),file_name="Pre_Launch Data.csv",mime="text/csv")
 
     #upload user input file
-    uploaded_file_df1 = st.sidebar.file_uploader(" ", type=["csv"])
+    st.write('Upload  the updated pre-launch data file with simulation projects.')
+    uploaded_file_df1 = st.file_uploader(" \* Only CSV files are supported", type=["csv"])
 
     if uploaded_file_df1:
         df1 = pd.read_csv(uploaded_file_df1)
@@ -518,16 +524,21 @@ def main():
             df_concat['launch_dt'] = pd.to_datetime(df_concat['launch_dt'])
             df_concat['launch_dt'] = df_concat['launch_dt'].dt.strftime('%Y-%m-%d')
             user_input_data = copy.deepcopy(df_concat)
-            dynamic_filters = DynamicFilters(df_concat, filters=['Project', 'Region','porfolio_bucket','bu'])
-            dynamic_filters.display_filters(location='sidebar')
-            df_filtered = dynamic_filters.filter_df()
             st.subheader('2. Start Modelling Simulator')
             st.write('Check the data before starting Simulation. You can include/exclude projects for desired results.')
 
             # Checkbox 
+            st.sidebar.subheader('Filter Pane')
+            measure_selected = st.sidebar.selectbox("Select the Measure: ",
+                                                ('1 Year Rolling NSV','1 Year Rolling iNSV','1 Year Rolling GSV','3 Year Rolling NSV','3 Year Rolling iNSV','3 Year Rolling GSV',
+                                                 'R&D Days','Gross Margin %'),help="This selector is not applicable on Scorecard Section")
+            dynamic_filters = DynamicFilters(df_concat, filters=['Project', 'Region','porfolio_bucket','bu'])
+            dynamic_filters.display_filters(location='sidebar')
+            df_filtered = dynamic_filters.filter_df()
+
             df_filtered['flag']=True
             df_filtered.insert(0, 'flag', df_filtered.pop('flag'))
-            df_filtered.insert(1, 'Project', df_filtered.pop('Project'))
+            df_filtered.insert(1, 'Project', df_filtered.pop('Project'))  
             q=st.data_editor(df_filtered,    column_config={
             "flag": st.column_config.CheckboxColumn(
                 "Include",
@@ -551,14 +562,10 @@ def main():
                 st.subheader('3. Simulation Result')
                 st.info('Use the filters on the left to dynamically adjust the simulation results.', icon="ℹ️")
                 # KPI Cards
-                st.markdown("<span style='font-size:25px;font-family:Source Sans Pro;font-weight:700'>Scorecard</span>",
-             unsafe_allow_html=True)
+                st.markdown("<span style='font-size:25px;font-family:Source Sans Pro;font-weight:700'>Scorecard</span>",unsafe_allow_html=True,help="Comparison with the Old Value")
                 kip_cards(final)
-                # Dropdown for the measure
-                measure_selected = st.selectbox("Select the Measure: ",
-                                                ('R&D Days','1 Year Rolling NSV','1 Year Rolling iNSV','1 Year Rolling GSV','3 Year Rolling NSV','3 Year Rolling iNSV','3 Year Rolling GSV',
-                                                 'Gross Margin %'))
-                
+                st.markdown("-----")
+                st.markdown("<span style='font-size:25px;font-family:Source Sans Pro;font-weight:700'>Visualizations</span>",unsafe_allow_html=True)
                 plot_comparison(final, measure_selected, 'Region')
                 if measure_selected not in ['R&D Days','Gross Margin %']:
                     plot_comparison(final, measure_selected, 'Year of NSV')
@@ -567,6 +574,8 @@ def main():
                 plot_comparison(final, measure_selected, 'Porfolio Bucket')
                 st.subheader('The Processed Data') 
                 st.write(final)
+                st.download_button("Download Final Data",final.to_csv(index=False),file_name="Simulator Output.csv",mime="text/csv")
+
     
 
 if __name__ == "__main__":
